@@ -12,7 +12,7 @@ def parse(s: str):
 
     return dv_name, node_id, indices
 
-def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, input_data, stage_node_ranges, scenario_paths, multi_cut_flag):
+def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, input_data, stage_node_ranges, benders_without_feasibility_flag, tolerance):
 
     technology_advancements = {'solar': input_data['solar_advancements'], 'electricity_storage': input_data['electricity_storage_advancements'], 
                                'wind': input_data['wind_advancements'], 'parabolic_trough': input_data['parabolic_trough_advancements'],
@@ -44,50 +44,44 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
     
     worst_sp_model = CampusApplicationMSSP(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
                         input_data['heat_demand'], worst_scenario_path_initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'],
-                        input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, 'WorstIncumbent')
+                        input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, tolerance, 'WorstIncumbent')
     
     last_subperiod = numStages * numSubperiods
     second_to_last_subperiod = last_subperiod - 1
     
     incumbent_solution = {}
-    theta_value = 0.0
     
     for v in worst_sp_model.getVars():
         dv_name, node_id, indices = parse(v.varName)
-        
-        if dv_name in ['electricitypurchase', 'heatpurchase']:
-            subperiod = int(indices[0])
-            if subperiod != last_subperiod:
-                theta_value += v.X * v.Obj
         
         for each_node_id in stage_node_ranges[node_id]:
             
             if dv_name == 'plus':
                 incumbent_solution[f'plus_{each_node_id}[{indices[0]},{indices[1]},{indices[2]}]'] = v.X
             
-            elif node_id == numStages:
-                subperiod = int(indices[0])
-                
-                if dv_name in ['electricitycharge', 'heatcharge', 'electricitydischarge', 'heatdischarge', 'electricityused', 'heatused']:
-                    if subperiod == last_subperiod:
-                        incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                
-                elif dv_name in ['electricitycarry', 'heatcarry']:
-                    p = int(indices[1])
-                    if subperiod == last_subperiod:
-                        incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                    elif subperiod == second_to_last_subperiod and p == numSubterms:
-                        incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                
-                elif dv_name == 'transferredheat':
-                    t_ = int(indices[4])
-                    if t_ == last_subperiod:
-                        incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]},{indices[2]},{indices[3]},{indices[4]}]'] = v.X
+            if benders_without_feasibility_flag:
 
-    if multi_cut_flag:
-        for sp_id in scenario_paths.keys():
-            incumbent_solution[f'theta[{sp_id}]'] = theta_value
-    else:
-        incumbent_solution['theta'] = theta_value
+                if node_id == numStages:
+
+                    last_subperiod = numStages * numSubperiods
+                    second_to_last_subperiod = last_subperiod - 1
+
+                    subperiod = int(indices[0])
+                    
+                    if dv_name in ['electricitycharge', 'heatcharge', 'electricitydischarge', 'heatdischarge', 'electricityused', 'heatused']:
+                        if subperiod == last_subperiod:
+                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
+                    
+                    elif dv_name in ['electricitycarry', 'heatcarry']:
+                        p = int(indices[1])
+                        if subperiod == last_subperiod:
+                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
+                        elif subperiod == second_to_last_subperiod and p == numSubterms:
+                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
+                    
+                    elif dv_name == 'transferredheat':
+                        t_ = int(indices[4])
+                        if t_ == last_subperiod:
+                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]},{indices[2]},{indices[3]},{indices[4]}]'] = v.X
 
     return incumbent_solution

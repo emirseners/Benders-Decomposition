@@ -67,8 +67,8 @@ def fetch_data(numStages, numSubperiods, numSubterms):
     electricity_purchasing_cost = [0.144 for _ in range(numStages*numSubperiods+1)]
     heat_purchasing_cost = [0.037436 for _ in range(numStages*numSubperiods+1)]
     emission_limits = [None for _ in range(numStages*numSubperiods)] + [0]
-    #budget = [0, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000, 80000000]
-    budget = [0] + [None for _ in range(15)]
+    budget = [0, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000]
+    #budget = [0] + [None for _ in range(15)]
 
     results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}'
     
@@ -76,12 +76,13 @@ def fetch_data(numStages, numSubperiods, numSubterms):
     heat_demand = [heat_demand[:numSubterms]]*(numStages*numSubperiods + 1)
 
     data = dict(solar_initial=solar_initial, solar_periodic_generation=solar_periodic_generation, solar_advancements=solar_advancements,
-     wind_initial=wind_initial, wind_periodic_generation=wind_periodic_generation, wind_advancements=wind_advancements,
-     electricity_storage_initial=electricity_storage_initial, electricity_storage_advancements=electricity_storage_advancements,
-     parabolic_trough_initial=parabolic_trough_initial, parabolic_trough_periodic_generation=parabolic_trough_periodic_generation, parabolic_trough_advancements=parabolic_trough_advancements,
-     heat_pump_initial=heat_pump_initial, heat_pump_cop=heat_pump_cop, heat_pump_advancements=heat_pump_advancements,
-     heat_storage_initial=heat_storage_initial, heat_storage_advancements=heat_storage_advancements, 
-     emission_limits=emission_limits, electricity_demand=electricity_demand, heat_demand=heat_demand, budget=budget,
-     electricity_purchasing_cost=electricity_purchasing_cost, heat_purchasing_cost=heat_purchasing_cost, results_directory=results_directory, discount_factor=discount_factor)
+    wind_initial=wind_initial, wind_periodic_generation=wind_periodic_generation, wind_advancements=wind_advancements,
+    electricity_storage_initial=electricity_storage_initial, electricity_storage_advancements=electricity_storage_advancements,
+    parabolic_trough_initial=parabolic_trough_initial, parabolic_trough_periodic_generation=parabolic_trough_periodic_generation, 
+    parabolic_trough_advancements=parabolic_trough_advancements, heat_pump_initial=heat_pump_initial, heat_pump_cop=heat_pump_cop, 
+    heat_pump_advancements=heat_pump_advancements, heat_storage_initial=heat_storage_initial, heat_storage_advancements=heat_storage_advancements, 
+    emission_limits=emission_limits, electricity_demand=electricity_demand, heat_demand=heat_demand, budget=budget,
+    electricity_purchasing_cost=electricity_purchasing_cost, heat_purchasing_cost=heat_purchasing_cost,
+    results_directory=results_directory, discount_factor=discount_factor)
 
     return data

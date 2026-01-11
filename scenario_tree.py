@@ -1,7 +1,7 @@
 import itertools
 
 class ScenarioTree:
-    def __init__(self, technologyTrees, mssp_flag=False):
+    def __init__(self, technologyTrees, benders_without_feasibility_flag, mssp_flag=False):
         self.technologies = technologyTrees
         self.numStages = self.technologies[0].nodes[-1].stage
         self.numSubperiods = self.technologies[0].nodes[-1].numSubperiods
@@ -11,8 +11,11 @@ class ScenarioTree:
         if mssp_flag:
             from mssp_model import ScenarioNodeMSSP
             NodeClass = ScenarioNodeMSSP
+        elif benders_without_feasibility_flag:
+            from benders_model_feas import ScenarioNode
+            NodeClass = ScenarioNode
         else:
-            from benders_decomposition import ScenarioNode
+            from benders_model import ScenarioNode
             NodeClass = ScenarioNode
 
         prerootTechNodeList = []
@@ -162,9 +165,9 @@ def construct_technology_with_multipliers(technology, num_stages, advancements_d
         efficiencyMultiplier=create_advancement_parameters(advancements_dict, advancement_key, 4))
 
 
-def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advancements, wind_initial, wind_periodic_generation, wind_advancements, electricity_storage_initial, 
-                           electricity_storage_advancements, parabolic_trough_initial, parabolic_trough_periodic_generation, parabolic_trough_advancements, heat_pump_initial,
-                           heat_pump_cop, heat_pump_advancements, heat_storage_initial, heat_storage_advancements, numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=False):
+def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advancements, wind_initial, wind_periodic_generation, wind_advancements, electricity_storage_initial, electricity_storage_advancements, 
+                           parabolic_trough_initial, parabolic_trough_periodic_generation, parabolic_trough_advancements, heat_pump_initial, heat_pump_cop, heat_pump_advancements, 
+                           heat_storage_initial, heat_storage_advancements, numSubterms, numSubperiods, numStages, numMultipliers, benders_without_feasibility_flag = False, mssp_flag=False):
 
     solar = create_technology_tree('solar', 'electricity generation', solar_initial, solar_periodic_generation, numSubperiods, numSubterms)
     construct_technology_with_multipliers(solar, numStages, solar_advancements, numMultipliers)
@@ -201,6 +204,6 @@ def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advan
         extract_dataframe_parameters(heat_storage_initial, 7)
     ]
 
-    scenarioTree = ScenarioTree([solar, wind, electricity_storage, parabolic_trough, heat_pump, heat_storage], mssp_flag)
+    scenarioTree = ScenarioTree([solar, wind, electricity_storage, parabolic_trough, heat_pump, heat_storage], benders_without_feasibility_flag, mssp_flag)
 
     return scenarioTree, initial_tech

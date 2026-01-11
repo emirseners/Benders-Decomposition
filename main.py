@@ -1,8 +1,8 @@
 import os
 from fetch_data import fetch_data
 from scenario_tree import generate_scenario_tree
+from benders import CampusApplication
 from obtain_incumbent import obtain_incumbent
-from benders_decomposition import CampusApplication
 
 if __name__ == '__main__':
     numStages = 3
@@ -12,9 +12,15 @@ if __name__ == '__main__':
     number_of_technologies_with_multipliers = 2
     multi_cut_flag = True
     callback_flag = False
-    write_cuts_flag = True
+    write_cuts_flag = False
     continuous_flag = False
-    worst_sp_incumbent_flag = True
+    worst_sp_incumbent_flag = False
+    master_threads = 3
+    threads_per_worker = 1
+
+    benders_without_feasibility_flag = False
+
+    feasibility_cut_intervals = 'cut_intervals.json'
 
     tolerance = 0.01
 
@@ -48,7 +54,7 @@ if __name__ == '__main__':
             assigned_node = nodes_in_stage[node_index]
             scenario_paths[scenario_num].append(assigned_node)
 
-    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers)
+    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, benders_without_feasibility_flag)
 
     scenario_path_probabilities = {int(each_node.id - sum([number_of_branches ** i for i in range(numStages - 1)])) : each_node.probability  for each_node in scenario_tree.nodes if len(each_node.children) == 0}
 
@@ -56,9 +62,9 @@ if __name__ == '__main__':
 
     incumbent_solution = None
     if worst_sp_incumbent_flag:
-        incumbent_solution = obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, input_data, stage_node_ranges, scenario_paths, multi_cut_flag)
-    
+        incumbent_solution = obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, input_data, stage_node_ranges, benders_without_feasibility_flag, tolerance)
+
     CampusApplication(numStages, numSubperiods, numSubterms, scenario_tree, initial_tech, input_data['emission_limits'], input_data['electricity_demand'],
-                      input_data['heat_demand'], input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
-                      input_data['results_directory'], input_data['discount_factor'], scenario_paths, scenario_path_probabilities,
-                      tolerance, multi_cut_flag, callback_flag, incumbent_solution, write_cuts_flag, continuous_flag)
+                    input_data['heat_demand'], input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
+                    input_data['results_directory'], input_data['discount_factor'], scenario_paths, scenario_path_probabilities, tolerance, benders_without_feasibility_flag,
+                    multi_cut_flag, callback_flag, write_cuts_flag, continuous_flag, feasibility_cut_intervals, master_threads, threads_per_worker, incumbent_solution)
