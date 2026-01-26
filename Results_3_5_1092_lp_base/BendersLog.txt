@@ -1,0 +1,3568 @@
+------------------------------
+Iteration 1:
+Upper Bound: inf
+Lower Bound: 0.00
+Gap: nan%
+Subproblem Execution Time: 27.09 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 2:
+Upper Bound: inf
+Lower Bound: 5899719.13
+Gap: nan%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 3:
+Upper Bound: inf
+Lower Bound: 6573726.50
+Gap: nan%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 4:
+Upper Bound: inf
+Lower Bound: 9642200.27
+Gap: nan%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 5:
+Upper Bound: inf
+Lower Bound: 12104443.80
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 6:
+Upper Bound: inf
+Lower Bound: 15832924.30
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 7:
+Upper Bound: inf
+Lower Bound: 17073392.48
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 8:
+Upper Bound: inf
+Lower Bound: 20121215.65
+Gap: nan%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 9:
+Upper Bound: inf
+Lower Bound: 22890394.04
+Gap: nan%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 10:
+Upper Bound: inf
+Lower Bound: 25988338.26
+Gap: nan%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 11:
+Upper Bound: inf
+Lower Bound: 30794733.70
+Gap: nan%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 12:
+Upper Bound: inf
+Lower Bound: 33769793.48
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 13:
+Upper Bound: inf
+Lower Bound: 35943411.44
+Gap: nan%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 14:
+Upper Bound: inf
+Lower Bound: 37983662.85
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 15:
+Upper Bound: inf
+Lower Bound: 41287070.45
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 16:
+Upper Bound: inf
+Lower Bound: 42446662.44
+Gap: nan%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 17:
+Upper Bound: inf
+Lower Bound: 44831054.70
+Gap: nan%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 18:
+Upper Bound: inf
+Lower Bound: 48980003.84
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 19:
+Upper Bound: inf
+Lower Bound: 52228624.07
+Gap: nan%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 20:
+Upper Bound: inf
+Lower Bound: 57539466.14
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 21:
+Upper Bound: inf
+Lower Bound: 61279091.26
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 22:
+Upper Bound: inf
+Lower Bound: 64001551.23
+Gap: nan%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 23:
+Upper Bound: inf
+Lower Bound: 66480652.55
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 24:
+Upper Bound: inf
+Lower Bound: 70377678.64
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 25:
+Upper Bound: inf
+Lower Bound: 72857578.18
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 26:
+Upper Bound: inf
+Lower Bound: 75368664.20
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 27:
+Upper Bound: inf
+Lower Bound: 78155770.33
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 28:
+Upper Bound: inf
+Lower Bound: 81178337.97
+Gap: nan%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 29:
+Upper Bound: inf
+Lower Bound: 82614351.05
+Gap: nan%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 30:
+Upper Bound: inf
+Lower Bound: 84748170.79
+Gap: nan%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 31:
+Upper Bound: inf
+Lower Bound: 89258975.97
+Gap: nan%
+Subproblem Execution Time: 0.76 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 32:
+Upper Bound: inf
+Lower Bound: 92146130.43
+Gap: nan%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 33:
+Upper Bound: inf
+Lower Bound: 93677776.06
+Gap: nan%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 34:
+Upper Bound: inf
+Lower Bound: 97021424.91
+Gap: nan%
+Subproblem Execution Time: 0.57 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 35:
+Upper Bound: inf
+Lower Bound: 101158836.86
+Gap: nan%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 36:
+Upper Bound: inf
+Lower Bound: 104379867.43
+Gap: nan%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 37:
+Upper Bound: inf
+Lower Bound: 105652081.66
+Gap: nan%
+Subproblem Execution Time: 0.79 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 38:
+Upper Bound: inf
+Lower Bound: 107906217.51
+Gap: nan%
+Subproblem Execution Time: 1.08 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 39:
+Upper Bound: inf
+Lower Bound: 109953420.79
+Gap: nan%
+Subproblem Execution Time: 1.00 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 40:
+Upper Bound: inf
+Lower Bound: 111067804.05
+Gap: nan%
+Subproblem Execution Time: 0.77 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 41:
+Upper Bound: inf
+Lower Bound: 112342133.14
+Gap: nan%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 42:
+Upper Bound: inf
+Lower Bound: 113536423.48
+Gap: nan%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 43:
+Upper Bound: inf
+Lower Bound: 114674324.32
+Gap: nan%
+Subproblem Execution Time: 0.58 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 44:
+Upper Bound: inf
+Lower Bound: 114924438.32
+Gap: nan%
+Subproblem Execution Time: 0.77 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 45:
+Upper Bound: inf
+Lower Bound: 115721030.02
+Gap: nan%
+Subproblem Execution Time: 0.96 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 46:
+Upper Bound: inf
+Lower Bound: 116490952.83
+Gap: nan%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 47:
+Upper Bound: inf
+Lower Bound: 117032752.69
+Gap: nan%
+Subproblem Execution Time: 0.67 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 48:
+Upper Bound: inf
+Lower Bound: 117547024.28
+Gap: nan%
+Subproblem Execution Time: 0.96 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 49:
+Upper Bound: inf
+Lower Bound: 117919989.52
+Gap: nan%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 50:
+Upper Bound: inf
+Lower Bound: 118552505.91
+Gap: nan%
+Subproblem Execution Time: 0.81 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 51:
+Upper Bound: inf
+Lower Bound: 118960827.63
+Gap: nan%
+Subproblem Execution Time: 1.16 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 52:
+Upper Bound: inf
+Lower Bound: 119280257.60
+Gap: nan%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 53:
+Upper Bound: inf
+Lower Bound: 119989361.58
+Gap: nan%
+Subproblem Execution Time: 0.87 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 54:
+Upper Bound: inf
+Lower Bound: 120333613.96
+Gap: nan%
+Subproblem Execution Time: 1.21 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 55:
+Upper Bound: inf
+Lower Bound: 120887262.70
+Gap: nan%
+Subproblem Execution Time: 1.18 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 56:
+Upper Bound: inf
+Lower Bound: 121264194.76
+Gap: nan%
+Subproblem Execution Time: 0.78 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 57:
+Upper Bound: inf
+Lower Bound: 121575900.72
+Gap: nan%
+Subproblem Execution Time: 0.87 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 58:
+Upper Bound: inf
+Lower Bound: 121900283.38
+Gap: nan%
+Subproblem Execution Time: 1.27 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 59:
+Upper Bound: inf
+Lower Bound: 122201200.75
+Gap: nan%
+Subproblem Execution Time: 1.51 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 60:
+Upper Bound: inf
+Lower Bound: 122324910.75
+Gap: nan%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 61:
+Upper Bound: inf
+Lower Bound: 122380061.21
+Gap: nan%
+Subproblem Execution Time: 0.97 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 62:
+Upper Bound: inf
+Lower Bound: 122490428.91
+Gap: nan%
+Subproblem Execution Time: 0.81 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 63:
+Upper Bound: inf
+Lower Bound: 122554318.31
+Gap: nan%
+Subproblem Execution Time: 0.91 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 64:
+Upper Bound: inf
+Lower Bound: 122781381.69
+Gap: nan%
+Subproblem Execution Time: 0.75 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 65:
+Upper Bound: inf
+Lower Bound: 122942405.74
+Gap: nan%
+Subproblem Execution Time: 0.76 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 66:
+Upper Bound: inf
+Lower Bound: 122990921.05
+Gap: nan%
+Subproblem Execution Time: 0.71 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 67:
+Upper Bound: inf
+Lower Bound: 123035153.61
+Gap: nan%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 68:
+Upper Bound: inf
+Lower Bound: 123044242.97
+Gap: nan%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 69:
+Upper Bound: inf
+Lower Bound: 123053712.19
+Gap: nan%
+Subproblem Execution Time: 1.05 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 70:
+Upper Bound: inf
+Lower Bound: 123140811.70
+Gap: nan%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 71:
+Upper Bound: inf
+Lower Bound: 123149662.54
+Gap: nan%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 72:
+Upper Bound: inf
+Lower Bound: 123183556.28
+Gap: nan%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 73:
+Upper Bound: inf
+Lower Bound: 123190459.89
+Gap: nan%
+Subproblem Execution Time: 0.61 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 74:
+Upper Bound: inf
+Lower Bound: 123234774.50
+Gap: nan%
+Subproblem Execution Time: 0.69 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 75:
+Upper Bound: inf
+Lower Bound: 123247872.91
+Gap: nan%
+Subproblem Execution Time: 0.71 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 76:
+Upper Bound: inf
+Lower Bound: 123263486.37
+Gap: nan%
+Subproblem Execution Time: 0.69 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 77:
+Upper Bound: inf
+Lower Bound: 123271859.12
+Gap: nan%
+Subproblem Execution Time: 0.49 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 78:
+Upper Bound: inf
+Lower Bound: 123291011.69
+Gap: nan%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 79:
+Upper Bound: inf
+Lower Bound: 123331719.27
+Gap: nan%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 80:
+Upper Bound: inf
+Lower Bound: 123358369.42
+Gap: nan%
+Subproblem Execution Time: 0.68 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 81:
+Upper Bound: inf
+Lower Bound: 123369551.25
+Gap: nan%
+Subproblem Execution Time: 0.63 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 82:
+Upper Bound: inf
+Lower Bound: 123382579.33
+Gap: nan%
+Subproblem Execution Time: 0.60 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 83:
+Upper Bound: inf
+Lower Bound: 123387829.75
+Gap: nan%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 84:
+Upper Bound: inf
+Lower Bound: 123394952.22
+Gap: nan%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 85:
+Upper Bound: inf
+Lower Bound: 123397808.97
+Gap: nan%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 86:
+Upper Bound: inf
+Lower Bound: 123401034.84
+Gap: nan%
+Subproblem Execution Time: 0.50 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 87:
+Upper Bound: inf
+Lower Bound: 123403539.21
+Gap: nan%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 88:
+Upper Bound: inf
+Lower Bound: 123403905.06
+Gap: nan%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 89:
+Upper Bound: inf
+Lower Bound: 123407442.72
+Gap: nan%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 90:
+Upper Bound: inf
+Lower Bound: 123410498.69
+Gap: nan%
+Subproblem Execution Time: 0.69 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 91:
+Upper Bound: inf
+Lower Bound: 123411087.62
+Gap: nan%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 92:
+Upper Bound: inf
+Lower Bound: 123411787.17
+Gap: nan%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 93:
+Upper Bound: inf
+Lower Bound: 123412463.01
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 94:
+Upper Bound: inf
+Lower Bound: 123412588.35
+Gap: nan%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 95:
+Upper Bound: inf
+Lower Bound: 123413584.30
+Gap: nan%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 96:
+Upper Bound: inf
+Lower Bound: 123413868.08
+Gap: nan%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 97:
+Upper Bound: inf
+Lower Bound: 123413902.73
+Gap: nan%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 98:
+Upper Bound: inf
+Lower Bound: 123414203.49
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 99:
+Upper Bound: inf
+Lower Bound: 123415167.95
+Gap: nan%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 100:
+Upper Bound: inf
+Lower Bound: 123415223.11
+Gap: nan%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 101:
+Upper Bound: inf
+Lower Bound: 123415275.38
+Gap: nan%
+Subproblem Execution Time: 0.56 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 102:
+Upper Bound: inf
+Lower Bound: 123415753.96
+Gap: nan%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 103:
+Upper Bound: inf
+Lower Bound: 123415773.29
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 104:
+Upper Bound: inf
+Lower Bound: 123415806.22
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 105:
+Upper Bound: inf
+Lower Bound: 123415809.77
+Gap: nan%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 106:
+Upper Bound: inf
+Lower Bound: 123415845.02
+Gap: nan%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 107:
+Upper Bound: inf
+Lower Bound: 123415846.22
+Gap: nan%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 108:
+Upper Bound: inf
+Lower Bound: 123415847.74
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 109:
+Upper Bound: inf
+Lower Bound: 123415850.29
+Gap: nan%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 110:
+Upper Bound: inf
+Lower Bound: 123415850.47
+Gap: nan%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 111:
+Upper Bound: inf
+Lower Bound: 123415851.59
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 112:
+Upper Bound: inf
+Lower Bound: 123415853.55
+Gap: nan%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 113:
+Upper Bound: inf
+Lower Bound: 123415853.66
+Gap: nan%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 114:
+Upper Bound: 192434290.81
+Lower Bound: 123415853.67
+Gap: 35.87%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.00 seconds
+------------------------------
+Iteration 115:
+Upper Bound: 192434290.81
+Lower Bound: 132898765.28
+Gap: 30.94%
+Subproblem Execution Time: 0.85 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 116:
+Upper Bound: 192434290.81
+Lower Bound: 133038664.11
+Gap: 30.87%
+Subproblem Execution Time: 1.12 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 117:
+Upper Bound: 192434290.81
+Lower Bound: 133091334.74
+Gap: 30.84%
+Subproblem Execution Time: 1.06 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 118:
+Upper Bound: 192434290.81
+Lower Bound: 133210606.20
+Gap: 30.78%
+Subproblem Execution Time: 0.95 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 119:
+Upper Bound: 192434290.81
+Lower Bound: 133427319.76
+Gap: 30.66%
+Subproblem Execution Time: 0.74 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 120:
+Upper Bound: 192434290.81
+Lower Bound: 133575452.04
+Gap: 30.59%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 121:
+Upper Bound: 192434290.81
+Lower Bound: 133606105.76
+Gap: 30.57%
+Subproblem Execution Time: 0.87 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 122:
+Upper Bound: 192434290.81
+Lower Bound: 133644919.69
+Gap: 30.55%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 123:
+Upper Bound: 192434290.81
+Lower Bound: 133658940.61
+Gap: 30.54%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 124:
+Upper Bound: 192434290.81
+Lower Bound: 133672533.06
+Gap: 30.54%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 125:
+Upper Bound: 192434290.81
+Lower Bound: 133718792.92
+Gap: 30.51%
+Subproblem Execution Time: 0.70 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 126:
+Upper Bound: 192434290.81
+Lower Bound: 133731880.01
+Gap: 30.51%
+Subproblem Execution Time: 0.57 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 127:
+Upper Bound: 192434290.81
+Lower Bound: 133735130.64
+Gap: 30.50%
+Subproblem Execution Time: 0.49 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 128:
+Upper Bound: 192434290.81
+Lower Bound: 133738383.16
+Gap: 30.50%
+Subproblem Execution Time: 0.64 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 129:
+Upper Bound: 192434290.81
+Lower Bound: 133743099.33
+Gap: 30.50%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 130:
+Upper Bound: 192434290.81
+Lower Bound: 133757737.68
+Gap: 30.49%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 131:
+Upper Bound: 192434290.81
+Lower Bound: 133765102.70
+Gap: 30.49%
+Subproblem Execution Time: 0.63 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 132:
+Upper Bound: 192434290.81
+Lower Bound: 133767913.29
+Gap: 30.49%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 133:
+Upper Bound: 192434290.81
+Lower Bound: 133768340.77
+Gap: 30.49%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 134:
+Upper Bound: 192434290.81
+Lower Bound: 133768871.46
+Gap: 30.49%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 135:
+Upper Bound: 192434290.81
+Lower Bound: 133769140.98
+Gap: 30.49%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 136:
+Upper Bound: 192434290.81
+Lower Bound: 133769447.85
+Gap: 30.49%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 137:
+Upper Bound: 192434290.81
+Lower Bound: 133770412.87
+Gap: 30.49%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 138:
+Upper Bound: 192434290.81
+Lower Bound: 133771670.74
+Gap: 30.48%
+Subproblem Execution Time: 0.60 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 139:
+Upper Bound: 192434290.81
+Lower Bound: 133774952.89
+Gap: 30.48%
+Subproblem Execution Time: 0.86 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 140:
+Upper Bound: 192434290.81
+Lower Bound: 133775509.66
+Gap: 30.48%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 141:
+Upper Bound: 192434290.81
+Lower Bound: 133777857.48
+Gap: 30.48%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 142:
+Upper Bound: 192434290.81
+Lower Bound: 133777873.28
+Gap: 30.48%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 143:
+Upper Bound: 192434290.81
+Lower Bound: 133777968.31
+Gap: 30.48%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 144:
+Upper Bound: 192434290.81
+Lower Bound: 133777985.04
+Gap: 30.48%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 145:
+Upper Bound: 192434290.81
+Lower Bound: 133778017.20
+Gap: 30.48%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 146:
+Upper Bound: 192434290.81
+Lower Bound: 133778095.71
+Gap: 30.48%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 147:
+Upper Bound: 192434290.81
+Lower Bound: 133778096.64
+Gap: 30.48%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 148:
+Upper Bound: 192434290.81
+Lower Bound: 133778102.73
+Gap: 30.48%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 149:
+Upper Bound: 192434290.81
+Lower Bound: 133778104.81
+Gap: 30.48%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 150:
+Upper Bound: 192434290.81
+Lower Bound: 133778106.09
+Gap: 30.48%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 151:
+Upper Bound: 192434290.81
+Lower Bound: 133778108.46
+Gap: 30.48%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 152:
+Upper Bound: 192434290.81
+Lower Bound: 133778141.23
+Gap: 30.48%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 153:
+Upper Bound: 192434290.81
+Lower Bound: 133778235.59
+Gap: 30.48%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 154:
+Upper Bound: 192434290.81
+Lower Bound: 133778235.68
+Gap: 30.48%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 155:
+Upper Bound: 192434290.81
+Lower Bound: 133778235.73
+Gap: 30.48%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 156:
+Upper Bound: 180713631.92
+Lower Bound: 133778235.75
+Gap: 25.97%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 157:
+Upper Bound: 180713631.92
+Lower Bound: 144219171.73
+Gap: 20.19%
+Subproblem Execution Time: 1.75 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 158:
+Upper Bound: 180713631.92
+Lower Bound: 144329907.29
+Gap: 20.13%
+Subproblem Execution Time: 1.12 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 159:
+Upper Bound: 180713631.92
+Lower Bound: 145006559.32
+Gap: 19.76%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 160:
+Upper Bound: 180713631.92
+Lower Bound: 146315897.50
+Gap: 19.03%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 161:
+Upper Bound: 180713631.92
+Lower Bound: 147015467.61
+Gap: 18.65%
+Subproblem Execution Time: 0.77 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 162:
+Upper Bound: 180713631.92
+Lower Bound: 147321818.68
+Gap: 18.48%
+Subproblem Execution Time: 1.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 163:
+Upper Bound: 180713631.92
+Lower Bound: 147815733.70
+Gap: 18.20%
+Subproblem Execution Time: 1.22 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 164:
+Upper Bound: 180713631.92
+Lower Bound: 148426501.58
+Gap: 17.87%
+Subproblem Execution Time: 2.08 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 165:
+Upper Bound: 180713631.92
+Lower Bound: 148775450.86
+Gap: 17.67%
+Subproblem Execution Time: 1.14 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 166:
+Upper Bound: 180713631.92
+Lower Bound: 148972602.50
+Gap: 17.56%
+Subproblem Execution Time: 1.72 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 167:
+Upper Bound: 180713631.92
+Lower Bound: 149258901.99
+Gap: 17.41%
+Subproblem Execution Time: 1.26 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 168:
+Upper Bound: 180713631.92
+Lower Bound: 149340886.59
+Gap: 17.36%
+Subproblem Execution Time: 1.06 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 169:
+Upper Bound: 180713631.92
+Lower Bound: 149576475.13
+Gap: 17.23%
+Subproblem Execution Time: 0.91 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 170:
+Upper Bound: 180713631.92
+Lower Bound: 149631923.60
+Gap: 17.20%
+Subproblem Execution Time: 0.92 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 171:
+Upper Bound: 180713631.92
+Lower Bound: 149698460.51
+Gap: 17.16%
+Subproblem Execution Time: 0.95 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 172:
+Upper Bound: 180713631.92
+Lower Bound: 149721206.33
+Gap: 17.15%
+Subproblem Execution Time: 1.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 173:
+Upper Bound: 180713631.92
+Lower Bound: 149742601.58
+Gap: 17.14%
+Subproblem Execution Time: 0.79 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 174:
+Upper Bound: 180713631.92
+Lower Bound: 149863597.27
+Gap: 17.07%
+Subproblem Execution Time: 1.23 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 175:
+Upper Bound: 180713631.92
+Lower Bound: 149877523.67
+Gap: 17.06%
+Subproblem Execution Time: 0.94 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 176:
+Upper Bound: 180713631.92
+Lower Bound: 149893524.55
+Gap: 17.05%
+Subproblem Execution Time: 1.08 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 177:
+Upper Bound: 180713631.92
+Lower Bound: 149920646.67
+Gap: 17.04%
+Subproblem Execution Time: 0.96 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 178:
+Upper Bound: 180713631.92
+Lower Bound: 149947922.41
+Gap: 17.02%
+Subproblem Execution Time: 0.75 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 179:
+Upper Bound: 180713631.92
+Lower Bound: 149954035.01
+Gap: 17.02%
+Subproblem Execution Time: 1.27 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 180:
+Upper Bound: 180713631.92
+Lower Bound: 149957287.28
+Gap: 17.02%
+Subproblem Execution Time: 0.64 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 181:
+Upper Bound: 180713631.92
+Lower Bound: 149972485.87
+Gap: 17.01%
+Subproblem Execution Time: 0.91 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 182:
+Upper Bound: 180713631.92
+Lower Bound: 149978206.31
+Gap: 17.01%
+Subproblem Execution Time: 0.86 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 183:
+Upper Bound: 180713631.92
+Lower Bound: 149993177.48
+Gap: 17.00%
+Subproblem Execution Time: 1.11 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 184:
+Upper Bound: 180713631.92
+Lower Bound: 150003692.92
+Gap: 16.99%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 185:
+Upper Bound: 180713631.92
+Lower Bound: 150008762.93
+Gap: 16.99%
+Subproblem Execution Time: 0.87 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 186:
+Upper Bound: 180713631.92
+Lower Bound: 150014770.43
+Gap: 16.99%
+Subproblem Execution Time: 0.63 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 187:
+Upper Bound: 180713631.92
+Lower Bound: 150016338.01
+Gap: 16.99%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 188:
+Upper Bound: 180713631.92
+Lower Bound: 150020686.52
+Gap: 16.98%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 189:
+Upper Bound: 180713631.92
+Lower Bound: 150022202.76
+Gap: 16.98%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 190:
+Upper Bound: 180713631.92
+Lower Bound: 150024377.56
+Gap: 16.98%
+Subproblem Execution Time: 0.66 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 191:
+Upper Bound: 180713631.92
+Lower Bound: 150025514.05
+Gap: 16.98%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 192:
+Upper Bound: 180713631.92
+Lower Bound: 150025914.48
+Gap: 16.98%
+Subproblem Execution Time: 0.76 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 193:
+Upper Bound: 180713631.92
+Lower Bound: 150026208.12
+Gap: 16.98%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 194:
+Upper Bound: 180713631.92
+Lower Bound: 150027489.25
+Gap: 16.98%
+Subproblem Execution Time: 0.56 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 195:
+Upper Bound: 180713631.92
+Lower Bound: 150027755.03
+Gap: 16.98%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 196:
+Upper Bound: 180713631.92
+Lower Bound: 150027896.38
+Gap: 16.98%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 197:
+Upper Bound: 180713631.92
+Lower Bound: 150027931.71
+Gap: 16.98%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 198:
+Upper Bound: 180713631.92
+Lower Bound: 150028063.55
+Gap: 16.98%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 199:
+Upper Bound: 180713631.92
+Lower Bound: 150028082.12
+Gap: 16.98%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 200:
+Upper Bound: 180713631.92
+Lower Bound: 150028118.45
+Gap: 16.98%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 201:
+Upper Bound: 180713631.92
+Lower Bound: 150028158.58
+Gap: 16.98%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 202:
+Upper Bound: 180713631.92
+Lower Bound: 150028222.39
+Gap: 16.98%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 203:
+Upper Bound: 180713631.92
+Lower Bound: 150028223.65
+Gap: 16.98%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 204:
+Upper Bound: 180713631.92
+Lower Bound: 150028223.91
+Gap: 16.98%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 205:
+Upper Bound: 180713631.92
+Lower Bound: 150028224.04
+Gap: 16.98%
+Subproblem Execution Time: 0.29 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 206:
+Upper Bound: 180713631.92
+Lower Bound: 150028224.18
+Gap: 16.98%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 207:
+Upper Bound: 180713631.92
+Lower Bound: 150028226.84
+Gap: 16.98%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 208:
+Upper Bound: 180713631.92
+Lower Bound: 150028226.84
+Gap: 16.98%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 209:
+Upper Bound: 180713631.92
+Lower Bound: 150028226.85
+Gap: 16.98%
+Subproblem Execution Time: 0.24 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 210:
+Upper Bound: 180713631.92
+Lower Bound: 158861867.81
+Gap: 12.09%
+Subproblem Execution Time: 1.12 seconds
+Master Problem Execution Time: 0.05 seconds
+------------------------------
+Iteration 211:
+Upper Bound: 180713631.92
+Lower Bound: 158950495.98
+Gap: 12.04%
+Subproblem Execution Time: 0.83 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 212:
+Upper Bound: 180713631.92
+Lower Bound: 159000825.03
+Gap: 12.02%
+Subproblem Execution Time: 0.79 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 213:
+Upper Bound: 180713631.92
+Lower Bound: 159047303.98
+Gap: 11.99%
+Subproblem Execution Time: 0.97 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 214:
+Upper Bound: 180713631.92
+Lower Bound: 159089068.86
+Gap: 11.97%
+Subproblem Execution Time: 1.13 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 215:
+Upper Bound: 180713631.92
+Lower Bound: 159127698.24
+Gap: 11.94%
+Subproblem Execution Time: 0.84 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 216:
+Upper Bound: 180713631.92
+Lower Bound: 159165544.64
+Gap: 11.92%
+Subproblem Execution Time: 0.99 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 217:
+Upper Bound: 180713631.92
+Lower Bound: 159186475.08
+Gap: 11.91%
+Subproblem Execution Time: 0.66 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 218:
+Upper Bound: 180713631.92
+Lower Bound: 159204926.69
+Gap: 11.90%
+Subproblem Execution Time: 0.69 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 219:
+Upper Bound: 180713631.92
+Lower Bound: 159216189.27
+Gap: 11.90%
+Subproblem Execution Time: 0.70 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 220:
+Upper Bound: 180713631.92
+Lower Bound: 159246587.37
+Gap: 11.88%
+Subproblem Execution Time: 0.80 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 221:
+Upper Bound: 180713631.92
+Lower Bound: 159254244.11
+Gap: 11.87%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 222:
+Upper Bound: 180713631.92
+Lower Bound: 159260687.97
+Gap: 11.87%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 223:
+Upper Bound: 180713631.92
+Lower Bound: 159268112.24
+Gap: 11.87%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 224:
+Upper Bound: 180713631.92
+Lower Bound: 159271845.41
+Gap: 11.87%
+Subproblem Execution Time: 0.70 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 225:
+Upper Bound: 180713631.92
+Lower Bound: 159272306.99
+Gap: 11.86%
+Subproblem Execution Time: 0.57 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 226:
+Upper Bound: 180713631.92
+Lower Bound: 159273028.27
+Gap: 11.86%
+Subproblem Execution Time: 0.50 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 227:
+Upper Bound: 180713631.92
+Lower Bound: 159275081.60
+Gap: 11.86%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 228:
+Upper Bound: 180713631.92
+Lower Bound: 159276788.42
+Gap: 11.86%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 229:
+Upper Bound: 180713631.92
+Lower Bound: 159277694.48
+Gap: 11.86%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 230:
+Upper Bound: 180713631.92
+Lower Bound: 159279197.65
+Gap: 11.86%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 231:
+Upper Bound: 180713631.92
+Lower Bound: 159279799.86
+Gap: 11.86%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 232:
+Upper Bound: 180713631.92
+Lower Bound: 159280056.60
+Gap: 11.86%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 233:
+Upper Bound: 180713631.92
+Lower Bound: 159280795.10
+Gap: 11.86%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 234:
+Upper Bound: 180713631.92
+Lower Bound: 159283331.94
+Gap: 11.86%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 235:
+Upper Bound: 180713631.92
+Lower Bound: 159283452.31
+Gap: 11.86%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 236:
+Upper Bound: 180713631.92
+Lower Bound: 159283655.64
+Gap: 11.86%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 237:
+Upper Bound: 180713631.92
+Lower Bound: 159283659.02
+Gap: 11.86%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 238:
+Upper Bound: 180713631.92
+Lower Bound: 159283661.50
+Gap: 11.86%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 239:
+Upper Bound: 180713631.92
+Lower Bound: 159283661.67
+Gap: 11.86%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 240:
+Upper Bound: 180713631.92
+Lower Bound: 159283661.69
+Gap: 11.86%
+Subproblem Execution Time: 0.29 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 241:
+Upper Bound: 180713631.92
+Lower Bound: 159283661.69
+Gap: 11.86%
+Subproblem Execution Time: 0.28 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 242:
+Upper Bound: 180713631.92
+Lower Bound: 162387465.77
+Gap: 10.14%
+Subproblem Execution Time: 1.71 seconds
+Master Problem Execution Time: 0.04 seconds
+------------------------------
+Iteration 243:
+Upper Bound: 180713631.92
+Lower Bound: 162403273.38
+Gap: 10.13%
+Subproblem Execution Time: 0.78 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 244:
+Upper Bound: 180713631.92
+Lower Bound: 162421123.04
+Gap: 10.12%
+Subproblem Execution Time: 0.97 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 245:
+Upper Bound: 180713631.92
+Lower Bound: 162443421.46
+Gap: 10.11%
+Subproblem Execution Time: 0.81 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 246:
+Upper Bound: 180713631.92
+Lower Bound: 162453498.46
+Gap: 10.10%
+Subproblem Execution Time: 0.86 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 247:
+Upper Bound: 180713631.92
+Lower Bound: 162456907.90
+Gap: 10.10%
+Subproblem Execution Time: 0.71 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 248:
+Upper Bound: 180713631.92
+Lower Bound: 162483381.79
+Gap: 10.09%
+Subproblem Execution Time: 0.72 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 249:
+Upper Bound: 180713631.92
+Lower Bound: 162492756.58
+Gap: 10.08%
+Subproblem Execution Time: 0.83 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 250:
+Upper Bound: 180713631.92
+Lower Bound: 162503488.51
+Gap: 10.08%
+Subproblem Execution Time: 0.72 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 251:
+Upper Bound: 180713631.92
+Lower Bound: 162508553.28
+Gap: 10.07%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 252:
+Upper Bound: 180713631.92
+Lower Bound: 162510598.12
+Gap: 10.07%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 253:
+Upper Bound: 180713631.92
+Lower Bound: 162511767.43
+Gap: 10.07%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 254:
+Upper Bound: 180713631.92
+Lower Bound: 162514304.23
+Gap: 10.07%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 255:
+Upper Bound: 180713631.92
+Lower Bound: 162514766.65
+Gap: 10.07%
+Subproblem Execution Time: 0.57 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 256:
+Upper Bound: 180713631.92
+Lower Bound: 162516498.83
+Gap: 10.07%
+Subproblem Execution Time: 0.82 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 257:
+Upper Bound: 180713631.92
+Lower Bound: 162518438.39
+Gap: 10.07%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 258:
+Upper Bound: 180713631.92
+Lower Bound: 162518640.52
+Gap: 10.07%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 259:
+Upper Bound: 180713631.92
+Lower Bound: 162518921.11
+Gap: 10.07%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 260:
+Upper Bound: 180713631.92
+Lower Bound: 162519190.37
+Gap: 10.07%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 261:
+Upper Bound: 180713631.92
+Lower Bound: 162520132.37
+Gap: 10.07%
+Subproblem Execution Time: 0.47 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 262:
+Upper Bound: 180713631.92
+Lower Bound: 162522286.20
+Gap: 10.07%
+Subproblem Execution Time: 0.69 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 263:
+Upper Bound: 180713631.92
+Lower Bound: 162522660.14
+Gap: 10.07%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 264:
+Upper Bound: 180713631.92
+Lower Bound: 162523098.45
+Gap: 10.07%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 265:
+Upper Bound: 180713631.92
+Lower Bound: 162523207.02
+Gap: 10.07%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 266:
+Upper Bound: 180713631.92
+Lower Bound: 162523487.26
+Gap: 10.07%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 267:
+Upper Bound: 180713631.92
+Lower Bound: 162523570.75
+Gap: 10.07%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 268:
+Upper Bound: 180713631.92
+Lower Bound: 162523575.04
+Gap: 10.07%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 269:
+Upper Bound: 180713631.92
+Lower Bound: 162523604.36
+Gap: 10.07%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 270:
+Upper Bound: 180713631.92
+Lower Bound: 162523609.17
+Gap: 10.07%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 271:
+Upper Bound: 180713631.92
+Lower Bound: 162523609.45
+Gap: 10.07%
+Subproblem Execution Time: 0.28 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 272:
+Upper Bound: 180713631.92
+Lower Bound: 162523609.45
+Gap: 10.07%
+Subproblem Execution Time: 0.28 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 273:
+Upper Bound: 180713631.92
+Lower Bound: 162523609.45
+Gap: 10.07%
+Subproblem Execution Time: 0.28 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 274:
+Upper Bound: 180713631.92
+Lower Bound: 166216503.44
+Gap: 8.02%
+Subproblem Execution Time: 2.17 seconds
+Master Problem Execution Time: 0.06 seconds
+------------------------------
+Iteration 275:
+Upper Bound: 180713631.92
+Lower Bound: 166312994.87
+Gap: 7.97%
+Subproblem Execution Time: 1.19 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 276:
+Upper Bound: 180713631.92
+Lower Bound: 166371489.95
+Gap: 7.94%
+Subproblem Execution Time: 1.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 277:
+Upper Bound: 180713631.92
+Lower Bound: 166377367.44
+Gap: 7.93%
+Subproblem Execution Time: 1.20 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 278:
+Upper Bound: 180713631.92
+Lower Bound: 166386755.95
+Gap: 7.93%
+Subproblem Execution Time: 0.83 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 279:
+Upper Bound: 180713631.92
+Lower Bound: 166395483.27
+Gap: 7.92%
+Subproblem Execution Time: 0.79 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 280:
+Upper Bound: 180713631.92
+Lower Bound: 166400009.99
+Gap: 7.92%
+Subproblem Execution Time: 0.58 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 281:
+Upper Bound: 180713631.92
+Lower Bound: 166401717.33
+Gap: 7.92%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 282:
+Upper Bound: 180713631.92
+Lower Bound: 166404214.49
+Gap: 7.92%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 283:
+Upper Bound: 180713631.92
+Lower Bound: 166405018.68
+Gap: 7.92%
+Subproblem Execution Time: 0.60 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 284:
+Upper Bound: 180713631.92
+Lower Bound: 166408095.24
+Gap: 7.92%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 285:
+Upper Bound: 180713631.92
+Lower Bound: 166409795.75
+Gap: 7.92%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 286:
+Upper Bound: 180713631.92
+Lower Bound: 166412136.35
+Gap: 7.91%
+Subproblem Execution Time: 0.50 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 287:
+Upper Bound: 180713631.92
+Lower Bound: 166417528.14
+Gap: 7.91%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 288:
+Upper Bound: 180713631.92
+Lower Bound: 166418049.69
+Gap: 7.91%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 289:
+Upper Bound: 180713631.92
+Lower Bound: 166420606.47
+Gap: 7.91%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 290:
+Upper Bound: 180713631.92
+Lower Bound: 166422758.67
+Gap: 7.91%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 291:
+Upper Bound: 180713631.92
+Lower Bound: 166426664.63
+Gap: 7.91%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 292:
+Upper Bound: 180713631.92
+Lower Bound: 166428409.53
+Gap: 7.90%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 293:
+Upper Bound: 180713631.92
+Lower Bound: 166428512.91
+Gap: 7.90%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 294:
+Upper Bound: 180713631.92
+Lower Bound: 166428838.35
+Gap: 7.90%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 295:
+Upper Bound: 180713631.92
+Lower Bound: 166428918.26
+Gap: 7.90%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 296:
+Upper Bound: 180713631.92
+Lower Bound: 166428954.03
+Gap: 7.90%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 297:
+Upper Bound: 180713631.92
+Lower Bound: 166428969.10
+Gap: 7.90%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 298:
+Upper Bound: 180713631.92
+Lower Bound: 166429018.52
+Gap: 7.90%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 299:
+Upper Bound: 180713631.92
+Lower Bound: 166429020.79
+Gap: 7.90%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 300:
+Upper Bound: 180713631.92
+Lower Bound: 166429037.84
+Gap: 7.90%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 301:
+Upper Bound: 180713631.92
+Lower Bound: 166429043.46
+Gap: 7.90%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 302:
+Upper Bound: 180713631.92
+Lower Bound: 166429045.76
+Gap: 7.90%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 303:
+Upper Bound: 180713631.92
+Lower Bound: 166429046.57
+Gap: 7.90%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 304:
+Upper Bound: 180713631.92
+Lower Bound: 166429046.80
+Gap: 7.90%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 305:
+Upper Bound: 180713631.92
+Lower Bound: 166429049.35
+Gap: 7.90%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 306:
+Upper Bound: 180713631.92
+Lower Bound: 166429050.15
+Gap: 7.90%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 307:
+Upper Bound: 178745555.49
+Lower Bound: 166429050.15
+Gap: 6.89%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 308:
+Upper Bound: 178745555.49
+Lower Bound: 167068696.31
+Gap: 6.53%
+Subproblem Execution Time: 0.93 seconds
+Master Problem Execution Time: 0.05 seconds
+------------------------------
+Iteration 309:
+Upper Bound: 178745555.49
+Lower Bound: 167092515.86
+Gap: 6.52%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 310:
+Upper Bound: 178745555.49
+Lower Bound: 167117613.86
+Gap: 6.51%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 311:
+Upper Bound: 178745555.49
+Lower Bound: 167133619.47
+Gap: 6.50%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 312:
+Upper Bound: 178745555.49
+Lower Bound: 167139001.98
+Gap: 6.49%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 313:
+Upper Bound: 178745555.49
+Lower Bound: 167142363.77
+Gap: 6.49%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 314:
+Upper Bound: 178745555.49
+Lower Bound: 167146291.35
+Gap: 6.49%
+Subproblem Execution Time: 0.61 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 315:
+Upper Bound: 178745555.49
+Lower Bound: 167149150.67
+Gap: 6.49%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 316:
+Upper Bound: 178745555.49
+Lower Bound: 167151704.51
+Gap: 6.49%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 317:
+Upper Bound: 178745555.49
+Lower Bound: 167152574.59
+Gap: 6.49%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 318:
+Upper Bound: 178745555.49
+Lower Bound: 167153105.39
+Gap: 6.49%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 319:
+Upper Bound: 178745555.49
+Lower Bound: 167154584.90
+Gap: 6.48%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 320:
+Upper Bound: 178745555.49
+Lower Bound: 167156143.37
+Gap: 6.48%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 321:
+Upper Bound: 178745555.49
+Lower Bound: 167157441.17
+Gap: 6.48%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 322:
+Upper Bound: 178745555.49
+Lower Bound: 167157776.24
+Gap: 6.48%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 323:
+Upper Bound: 178745555.49
+Lower Bound: 167158014.91
+Gap: 6.48%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 324:
+Upper Bound: 178745555.49
+Lower Bound: 167158267.85
+Gap: 6.48%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 325:
+Upper Bound: 178745555.49
+Lower Bound: 167158575.38
+Gap: 6.48%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 326:
+Upper Bound: 178745555.49
+Lower Bound: 167158594.27
+Gap: 6.48%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 327:
+Upper Bound: 178745555.49
+Lower Bound: 167158679.93
+Gap: 6.48%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 328:
+Upper Bound: 178745555.49
+Lower Bound: 167158792.50
+Gap: 6.48%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 329:
+Upper Bound: 178745555.49
+Lower Bound: 167158802.03
+Gap: 6.48%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 330:
+Upper Bound: 178745555.49
+Lower Bound: 167158805.03
+Gap: 6.48%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 331:
+Upper Bound: 178745555.49
+Lower Bound: 167158805.52
+Gap: 6.48%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 332:
+Upper Bound: 173479464.76
+Lower Bound: 167158805.64
+Gap: 3.64%
+Subproblem Execution Time: 0.26 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 333:
+Upper Bound: 173479464.76
+Lower Bound: 168375823.39
+Gap: 2.94%
+Subproblem Execution Time: 1.20 seconds
+Master Problem Execution Time: 0.06 seconds
+------------------------------
+Iteration 334:
+Upper Bound: 173479464.76
+Lower Bound: 168399447.87
+Gap: 2.93%
+Subproblem Execution Time: 0.97 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 335:
+Upper Bound: 173479464.76
+Lower Bound: 168405044.10
+Gap: 2.93%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 336:
+Upper Bound: 173479464.76
+Lower Bound: 168409684.79
+Gap: 2.92%
+Subproblem Execution Time: 0.98 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 337:
+Upper Bound: 173479464.76
+Lower Bound: 168416447.29
+Gap: 2.92%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 338:
+Upper Bound: 173479464.76
+Lower Bound: 168419393.54
+Gap: 2.92%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 339:
+Upper Bound: 173479464.76
+Lower Bound: 168424218.65
+Gap: 2.91%
+Subproblem Execution Time: 0.77 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 340:
+Upper Bound: 173479464.76
+Lower Bound: 168426232.11
+Gap: 2.91%
+Subproblem Execution Time: 0.89 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 341:
+Upper Bound: 173479464.76
+Lower Bound: 168427605.61
+Gap: 2.91%
+Subproblem Execution Time: 0.96 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 342:
+Upper Bound: 173479464.76
+Lower Bound: 168428058.08
+Gap: 2.91%
+Subproblem Execution Time: 0.61 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 343:
+Upper Bound: 173479464.76
+Lower Bound: 168430059.16
+Gap: 2.91%
+Subproblem Execution Time: 0.64 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 344:
+Upper Bound: 173479464.76
+Lower Bound: 168430287.07
+Gap: 2.91%
+Subproblem Execution Time: 0.79 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 345:
+Upper Bound: 173479464.76
+Lower Bound: 168430756.94
+Gap: 2.91%
+Subproblem Execution Time: 0.60 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 346:
+Upper Bound: 173479464.76
+Lower Bound: 168431370.84
+Gap: 2.91%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 347:
+Upper Bound: 173479464.76
+Lower Bound: 168431545.54
+Gap: 2.91%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 348:
+Upper Bound: 173479464.76
+Lower Bound: 168431774.62
+Gap: 2.91%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 349:
+Upper Bound: 173479464.76
+Lower Bound: 168432873.60
+Gap: 2.91%
+Subproblem Execution Time: 0.47 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 350:
+Upper Bound: 173479464.76
+Lower Bound: 168433542.17
+Gap: 2.91%
+Subproblem Execution Time: 0.49 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 351:
+Upper Bound: 173479464.76
+Lower Bound: 168433675.91
+Gap: 2.91%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 352:
+Upper Bound: 173479464.76
+Lower Bound: 168433918.63
+Gap: 2.91%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 353:
+Upper Bound: 173479464.76
+Lower Bound: 168434953.09
+Gap: 2.91%
+Subproblem Execution Time: 0.76 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 354:
+Upper Bound: 173479464.76
+Lower Bound: 168435060.17
+Gap: 2.91%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 355:
+Upper Bound: 173479464.76
+Lower Bound: 168435950.34
+Gap: 2.91%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 356:
+Upper Bound: 173479464.76
+Lower Bound: 168436468.15
+Gap: 2.91%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 357:
+Upper Bound: 173479464.76
+Lower Bound: 168436493.03
+Gap: 2.91%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 358:
+Upper Bound: 173479464.76
+Lower Bound: 168436553.68
+Gap: 2.91%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 359:
+Upper Bound: 173479464.76
+Lower Bound: 168436747.47
+Gap: 2.91%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 360:
+Upper Bound: 173479464.76
+Lower Bound: 168436781.34
+Gap: 2.91%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 361:
+Upper Bound: 173479464.76
+Lower Bound: 168436802.30
+Gap: 2.91%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 362:
+Upper Bound: 173479464.76
+Lower Bound: 168436828.97
+Gap: 2.91%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 363:
+Upper Bound: 173479464.76
+Lower Bound: 168436837.09
+Gap: 2.91%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 364:
+Upper Bound: 173479464.76
+Lower Bound: 168436839.26
+Gap: 2.91%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 365:
+Upper Bound: 173479464.76
+Lower Bound: 168436839.54
+Gap: 2.91%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 366:
+Upper Bound: 172956153.30
+Lower Bound: 168436839.85
+Gap: 2.61%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 367:
+Upper Bound: 172956153.30
+Lower Bound: 169130961.59
+Gap: 2.21%
+Subproblem Execution Time: 1.58 seconds
+Master Problem Execution Time: 0.05 seconds
+------------------------------
+Iteration 368:
+Upper Bound: 172956153.30
+Lower Bound: 169159861.77
+Gap: 2.19%
+Subproblem Execution Time: 0.94 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 369:
+Upper Bound: 172956153.30
+Lower Bound: 169173226.59
+Gap: 2.19%
+Subproblem Execution Time: 1.33 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 370:
+Upper Bound: 172956153.30
+Lower Bound: 169179667.20
+Gap: 2.18%
+Subproblem Execution Time: 0.82 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 371:
+Upper Bound: 172956153.30
+Lower Bound: 169194788.41
+Gap: 2.17%
+Subproblem Execution Time: 0.77 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 372:
+Upper Bound: 172956153.30
+Lower Bound: 169195994.42
+Gap: 2.17%
+Subproblem Execution Time: 0.57 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 373:
+Upper Bound: 172956153.30
+Lower Bound: 169198496.15
+Gap: 2.17%
+Subproblem Execution Time: 0.61 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 374:
+Upper Bound: 172956153.30
+Lower Bound: 169201663.66
+Gap: 2.17%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 375:
+Upper Bound: 172956153.30
+Lower Bound: 169203429.70
+Gap: 2.17%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 376:
+Upper Bound: 172956153.30
+Lower Bound: 169205153.51
+Gap: 2.17%
+Subproblem Execution Time: 0.67 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 377:
+Upper Bound: 172956153.30
+Lower Bound: 169205952.62
+Gap: 2.17%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 378:
+Upper Bound: 172956153.30
+Lower Bound: 169210460.56
+Gap: 2.17%
+Subproblem Execution Time: 0.80 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 379:
+Upper Bound: 172956153.30
+Lower Bound: 169211109.04
+Gap: 2.17%
+Subproblem Execution Time: 0.58 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 380:
+Upper Bound: 172956153.30
+Lower Bound: 169212209.44
+Gap: 2.16%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 381:
+Upper Bound: 172956153.30
+Lower Bound: 169213410.67
+Gap: 2.16%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 382:
+Upper Bound: 172956153.30
+Lower Bound: 169213603.70
+Gap: 2.16%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 383:
+Upper Bound: 172956153.30
+Lower Bound: 169213994.60
+Gap: 2.16%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 384:
+Upper Bound: 172956153.30
+Lower Bound: 169214059.87
+Gap: 2.16%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 385:
+Upper Bound: 172956153.30
+Lower Bound: 169214842.17
+Gap: 2.16%
+Subproblem Execution Time: 0.70 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 386:
+Upper Bound: 172956153.30
+Lower Bound: 169214963.53
+Gap: 2.16%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 387:
+Upper Bound: 172956153.30
+Lower Bound: 169215035.38
+Gap: 2.16%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 388:
+Upper Bound: 172956153.30
+Lower Bound: 169215100.86
+Gap: 2.16%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 389:
+Upper Bound: 172956153.30
+Lower Bound: 169215354.98
+Gap: 2.16%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 390:
+Upper Bound: 172956153.30
+Lower Bound: 169215471.82
+Gap: 2.16%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 391:
+Upper Bound: 172956153.30
+Lower Bound: 169215497.47
+Gap: 2.16%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 392:
+Upper Bound: 172956153.30
+Lower Bound: 169215537.21
+Gap: 2.16%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 393:
+Upper Bound: 172956153.30
+Lower Bound: 169215579.40
+Gap: 2.16%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 394:
+Upper Bound: 172956153.30
+Lower Bound: 169215581.16
+Gap: 2.16%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 395:
+Upper Bound: 172956153.30
+Lower Bound: 169215581.83
+Gap: 2.16%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 396:
+Upper Bound: 172956153.30
+Lower Bound: 169740354.36
+Gap: 1.86%
+Subproblem Execution Time: 1.52 seconds
+Master Problem Execution Time: 0.06 seconds
+------------------------------
+Iteration 397:
+Upper Bound: 172956153.30
+Lower Bound: 169746035.15
+Gap: 1.86%
+Subproblem Execution Time: 0.70 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 398:
+Upper Bound: 172956153.30
+Lower Bound: 169753544.35
+Gap: 1.85%
+Subproblem Execution Time: 0.75 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 399:
+Upper Bound: 172956153.30
+Lower Bound: 169754878.19
+Gap: 1.85%
+Subproblem Execution Time: 0.63 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 400:
+Upper Bound: 172956153.30
+Lower Bound: 169756673.25
+Gap: 1.85%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 401:
+Upper Bound: 172956153.30
+Lower Bound: 169758877.90
+Gap: 1.85%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 402:
+Upper Bound: 172956153.30
+Lower Bound: 169759475.29
+Gap: 1.85%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 403:
+Upper Bound: 172956153.30
+Lower Bound: 169759984.76
+Gap: 1.85%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 404:
+Upper Bound: 172956153.30
+Lower Bound: 169760618.40
+Gap: 1.85%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 405:
+Upper Bound: 172956153.30
+Lower Bound: 169760719.43
+Gap: 1.85%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 406:
+Upper Bound: 172956153.30
+Lower Bound: 169761973.87
+Gap: 1.85%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 407:
+Upper Bound: 172956153.30
+Lower Bound: 169763249.42
+Gap: 1.85%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 408:
+Upper Bound: 172956153.30
+Lower Bound: 169763622.81
+Gap: 1.85%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 409:
+Upper Bound: 172956153.30
+Lower Bound: 169764396.15
+Gap: 1.85%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 410:
+Upper Bound: 172956153.30
+Lower Bound: 169764525.36
+Gap: 1.85%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 411:
+Upper Bound: 172956153.30
+Lower Bound: 169764647.25
+Gap: 1.85%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 412:
+Upper Bound: 172956153.30
+Lower Bound: 169764720.34
+Gap: 1.85%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 413:
+Upper Bound: 172956153.30
+Lower Bound: 169764924.41
+Gap: 1.85%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 414:
+Upper Bound: 172956153.30
+Lower Bound: 169764943.09
+Gap: 1.85%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 415:
+Upper Bound: 172956153.30
+Lower Bound: 169764988.60
+Gap: 1.85%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 416:
+Upper Bound: 172956153.30
+Lower Bound: 169765021.50
+Gap: 1.85%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 417:
+Upper Bound: 172956153.30
+Lower Bound: 169765039.50
+Gap: 1.85%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 418:
+Upper Bound: 172956153.30
+Lower Bound: 169765042.02
+Gap: 1.85%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 419:
+Upper Bound: 172956153.30
+Lower Bound: 169765045.12
+Gap: 1.85%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 420:
+Upper Bound: 172956153.30
+Lower Bound: 169765045.39
+Gap: 1.85%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 421:
+Upper Bound: 172956153.30
+Lower Bound: 169765045.43
+Gap: 1.85%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.01 seconds
+------------------------------
+Iteration 422:
+Upper Bound: 172956153.30
+Lower Bound: 170178979.64
+Gap: 1.61%
+Subproblem Execution Time: 1.36 seconds
+Master Problem Execution Time: 0.06 seconds
+------------------------------
+Iteration 423:
+Upper Bound: 172956153.30
+Lower Bound: 170185604.15
+Gap: 1.60%
+Subproblem Execution Time: 1.51 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 424:
+Upper Bound: 172956153.30
+Lower Bound: 170189946.92
+Gap: 1.60%
+Subproblem Execution Time: 0.65 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 425:
+Upper Bound: 172956153.30
+Lower Bound: 170192300.67
+Gap: 1.60%
+Subproblem Execution Time: 0.73 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 426:
+Upper Bound: 172956153.30
+Lower Bound: 170194831.75
+Gap: 1.60%
+Subproblem Execution Time: 0.64 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 427:
+Upper Bound: 172956153.30
+Lower Bound: 170199267.23
+Gap: 1.59%
+Subproblem Execution Time: 0.88 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 428:
+Upper Bound: 172956153.30
+Lower Bound: 170201070.20
+Gap: 1.59%
+Subproblem Execution Time: 0.53 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 429:
+Upper Bound: 172956153.30
+Lower Bound: 170202620.55
+Gap: 1.59%
+Subproblem Execution Time: 0.50 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 430:
+Upper Bound: 172956153.30
+Lower Bound: 170202942.58
+Gap: 1.59%
+Subproblem Execution Time: 0.61 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 431:
+Upper Bound: 172956153.30
+Lower Bound: 170203155.76
+Gap: 1.59%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 432:
+Upper Bound: 172956153.30
+Lower Bound: 170203365.57
+Gap: 1.59%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 433:
+Upper Bound: 172956153.30
+Lower Bound: 170203898.22
+Gap: 1.59%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 434:
+Upper Bound: 172956153.30
+Lower Bound: 170204023.99
+Gap: 1.59%
+Subproblem Execution Time: 0.48 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 435:
+Upper Bound: 172956153.30
+Lower Bound: 170204264.00
+Gap: 1.59%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 436:
+Upper Bound: 172956153.30
+Lower Bound: 170204297.05
+Gap: 1.59%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 437:
+Upper Bound: 172956153.30
+Lower Bound: 170204353.17
+Gap: 1.59%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 438:
+Upper Bound: 172956153.30
+Lower Bound: 170204453.52
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 439:
+Upper Bound: 172956153.30
+Lower Bound: 170204496.28
+Gap: 1.59%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 440:
+Upper Bound: 172956153.30
+Lower Bound: 170204523.47
+Gap: 1.59%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 441:
+Upper Bound: 172956153.30
+Lower Bound: 170204548.09
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 442:
+Upper Bound: 172956153.30
+Lower Bound: 170204565.25
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 443:
+Upper Bound: 172956153.30
+Lower Bound: 170204566.41
+Gap: 1.59%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 444:
+Upper Bound: 172956153.30
+Lower Bound: 170204567.28
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 445:
+Upper Bound: 172956153.30
+Lower Bound: 170204568.59
+Gap: 1.59%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 446:
+Upper Bound: 172956153.30
+Lower Bound: 170204568.95
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 447:
+Upper Bound: 172956153.30
+Lower Bound: 170204569.41
+Gap: 1.59%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 448:
+Upper Bound: 172956153.30
+Lower Bound: 170204569.87
+Gap: 1.59%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 449:
+Upper Bound: 172956153.30
+Lower Bound: 170204569.92
+Gap: 1.59%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 450:
+Upper Bound: 172956153.30
+Lower Bound: 170204569.94
+Gap: 1.59%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 451:
+Upper Bound: 172956153.30
+Lower Bound: 170204569.96
+Gap: 1.59%
+Subproblem Execution Time: 0.29 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 452:
+Upper Bound: 172956153.30
+Lower Bound: 170336275.05
+Gap: 1.51%
+Subproblem Execution Time: 1.78 seconds
+Master Problem Execution Time: 0.06 seconds
+------------------------------
+Iteration 453:
+Upper Bound: 172956153.30
+Lower Bound: 170339022.44
+Gap: 1.51%
+Subproblem Execution Time: 0.72 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 454:
+Upper Bound: 172956153.30
+Lower Bound: 170341111.85
+Gap: 1.51%
+Subproblem Execution Time: 1.38 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 455:
+Upper Bound: 172956153.30
+Lower Bound: 170342029.88
+Gap: 1.51%
+Subproblem Execution Time: 0.83 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 456:
+Upper Bound: 172956153.30
+Lower Bound: 170342377.91
+Gap: 1.51%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 457:
+Upper Bound: 172956153.30
+Lower Bound: 170342543.39
+Gap: 1.51%
+Subproblem Execution Time: 0.59 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 458:
+Upper Bound: 172956153.30
+Lower Bound: 170343275.64
+Gap: 1.51%
+Subproblem Execution Time: 0.83 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 459:
+Upper Bound: 172956153.30
+Lower Bound: 170344197.63
+Gap: 1.51%
+Subproblem Execution Time: 0.62 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 460:
+Upper Bound: 172956153.30
+Lower Bound: 170344350.20
+Gap: 1.51%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 461:
+Upper Bound: 172956153.30
+Lower Bound: 170344466.34
+Gap: 1.51%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 462:
+Upper Bound: 172956153.30
+Lower Bound: 170345031.76
+Gap: 1.51%
+Subproblem Execution Time: 0.56 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 463:
+Upper Bound: 172956153.30
+Lower Bound: 170345300.74
+Gap: 1.51%
+Subproblem Execution Time: 0.66 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 464:
+Upper Bound: 172956153.30
+Lower Bound: 170345358.43
+Gap: 1.51%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 465:
+Upper Bound: 172956153.30
+Lower Bound: 170345407.27
+Gap: 1.51%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 466:
+Upper Bound: 172956153.30
+Lower Bound: 170345434.80
+Gap: 1.51%
+Subproblem Execution Time: 0.45 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 467:
+Upper Bound: 172956153.30
+Lower Bound: 170345472.89
+Gap: 1.51%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 468:
+Upper Bound: 172956153.30
+Lower Bound: 170345805.56
+Gap: 1.51%
+Subproblem Execution Time: 0.82 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 469:
+Upper Bound: 172956153.30
+Lower Bound: 170346026.25
+Gap: 1.51%
+Subproblem Execution Time: 0.75 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 470:
+Upper Bound: 172956153.30
+Lower Bound: 170346318.12
+Gap: 1.51%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 471:
+Upper Bound: 172956153.30
+Lower Bound: 170346441.89
+Gap: 1.51%
+Subproblem Execution Time: 0.55 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 472:
+Upper Bound: 172956153.30
+Lower Bound: 170346494.51
+Gap: 1.51%
+Subproblem Execution Time: 0.54 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 473:
+Upper Bound: 172956153.30
+Lower Bound: 170346604.45
+Gap: 1.51%
+Subproblem Execution Time: 0.44 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 474:
+Upper Bound: 172956153.30
+Lower Bound: 170346669.47
+Gap: 1.51%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 475:
+Upper Bound: 172956153.30
+Lower Bound: 170346694.83
+Gap: 1.51%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 476:
+Upper Bound: 172956153.30
+Lower Bound: 170346700.55
+Gap: 1.51%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 477:
+Upper Bound: 172956153.30
+Lower Bound: 170346711.03
+Gap: 1.51%
+Subproblem Execution Time: 0.46 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 478:
+Upper Bound: 172956153.30
+Lower Bound: 170346716.38
+Gap: 1.51%
+Subproblem Execution Time: 0.39 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 479:
+Upper Bound: 172956153.30
+Lower Bound: 170346725.80
+Gap: 1.51%
+Subproblem Execution Time: 0.42 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 480:
+Upper Bound: 172956153.30
+Lower Bound: 170346732.70
+Gap: 1.51%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 481:
+Upper Bound: 172956153.30
+Lower Bound: 170346738.10
+Gap: 1.51%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 482:
+Upper Bound: 172956153.30
+Lower Bound: 170346741.79
+Gap: 1.51%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 483:
+Upper Bound: 172956153.30
+Lower Bound: 170346742.99
+Gap: 1.51%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 484:
+Upper Bound: 172956153.30
+Lower Bound: 170346743.18
+Gap: 1.51%
+Subproblem Execution Time: 0.30 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 485:
+Upper Bound: 172956153.30
+Lower Bound: 170346749.98
+Gap: 1.51%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 486:
+Upper Bound: 172624825.16
+Lower Bound: 170346750.69
+Gap: 1.32%
+Subproblem Execution Time: 0.40 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 487:
+Upper Bound: 172624825.16
+Lower Bound: 170513919.17
+Gap: 1.22%
+Subproblem Execution Time: 1.62 seconds
+Master Problem Execution Time: 0.08 seconds
+------------------------------
+Iteration 488:
+Upper Bound: 172624825.16
+Lower Bound: 170516234.00
+Gap: 1.22%
+Subproblem Execution Time: 0.52 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 489:
+Upper Bound: 172624825.16
+Lower Bound: 170517711.51
+Gap: 1.22%
+Subproblem Execution Time: 0.76 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 490:
+Upper Bound: 172624825.16
+Lower Bound: 170518299.75
+Gap: 1.22%
+Subproblem Execution Time: 0.51 seconds
+Master Problem Execution Time: 0.03 seconds
+------------------------------
+Iteration 491:
+Upper Bound: 172624825.16
+Lower Bound: 170518783.34
+Gap: 1.22%
+Subproblem Execution Time: 0.56 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 492:
+Upper Bound: 172624825.16
+Lower Bound: 170519653.19
+Gap: 1.22%
+Subproblem Execution Time: 0.49 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 493:
+Upper Bound: 172624825.16
+Lower Bound: 170519782.88
+Gap: 1.22%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 494:
+Upper Bound: 172624825.16
+Lower Bound: 170520174.96
+Gap: 1.22%
+Subproblem Execution Time: 0.43 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 495:
+Upper Bound: 172624825.16
+Lower Bound: 170520809.84
+Gap: 1.22%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 496:
+Upper Bound: 172624825.16
+Lower Bound: 170521045.76
+Gap: 1.22%
+Subproblem Execution Time: 0.41 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 497:
+Upper Bound: 172624825.16
+Lower Bound: 170521099.44
+Gap: 1.22%
+Subproblem Execution Time: 0.36 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 498:
+Upper Bound: 172624825.16
+Lower Bound: 170521206.00
+Gap: 1.22%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 499:
+Upper Bound: 172624825.16
+Lower Bound: 170521231.58
+Gap: 1.22%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 500:
+Upper Bound: 172624825.16
+Lower Bound: 170521243.30
+Gap: 1.22%
+Subproblem Execution Time: 0.38 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 501:
+Upper Bound: 172624825.16
+Lower Bound: 170521249.25
+Gap: 1.22%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 502:
+Upper Bound: 172624825.16
+Lower Bound: 170521251.29
+Gap: 1.22%
+Subproblem Execution Time: 0.34 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 503:
+Upper Bound: 172624825.16
+Lower Bound: 170521252.41
+Gap: 1.22%
+Subproblem Execution Time: 0.31 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 504:
+Upper Bound: 172624825.16
+Lower Bound: 170521252.77
+Gap: 1.22%
+Subproblem Execution Time: 0.33 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 505:
+Upper Bound: 172624825.16
+Lower Bound: 170521253.15
+Gap: 1.22%
+Subproblem Execution Time: 0.35 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 506:
+Upper Bound: 172624825.16
+Lower Bound: 170521253.34
+Gap: 1.22%
+Subproblem Execution Time: 0.32 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 507:
+Upper Bound: 172408045.38
+Lower Bound: 170521253.45
+Gap: 1.09%
+Subproblem Execution Time: 0.37 seconds
+Master Problem Execution Time: 0.02 seconds
+------------------------------
+Iteration 508:
+Upper Bound: 172408045.38
+Lower Bound: 170724525.54
+Gap: 0.98%
+Subproblem Execution Time: 0.84 seconds
+Master Problem Execution Time: 0.07 seconds
+==============================
+Final Summary
+Best Upper Bound: 172408045.38
+Final Lower Bound: 170724525.54
+Final Gap: 0.98%
+Number of Iterations: 508
+Number of Iterations with Feasibility Cuts: 495
+Number of Iterations with Optimality Cuts: 13
+Subproblem Time: 318.13 seconds
+Master Time: 6.26 seconds
+Iteration Time: 325.09 seconds
+Total Time: 346.79 seconds

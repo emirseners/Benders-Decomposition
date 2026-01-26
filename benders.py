@@ -1,5 +1,6 @@
 from gurobipy import GRB, Model, quicksum, Env
 import os
+import math
 import copy
 import time
 import threading
@@ -21,7 +22,7 @@ def solve_subproblem(nonanticipativity_lookup):
     
     _worker_model.setAttr('LB', nonant_vars, bounds)
     _worker_model.setAttr('UB', nonant_vars, bounds)
-    
+
     _worker_model.optimize()
 
     status = _worker_model.status
@@ -41,7 +42,8 @@ def solve_subproblem(nonanticipativity_lookup):
     dv_coefficients = defaultdict(float)
     
     if feasibility_flag:
-        constant = _worker_model.objVal
+        objective_value = _worker_model.objVal
+        constant = objective_value
         dual_values = _worker_model.getAttr('Pi', all_constrs)
         
         for constr_idx, row_entries in constr_nonant_map.items():
@@ -55,10 +57,17 @@ def solve_subproblem(nonanticipativity_lookup):
                 dv_coefficients[vname] += dv_coef
                 constant -= dv_coef * nonant_values[var_idx]
     else:
+        objective_value = float('inf')
         all_rhs = _worker_model._all_rhs
         farkas_values = _worker_model.getAttr('FarkasDual', all_constrs)
         constant = sum(pi * rhs for pi, rhs in zip(farkas_values, all_rhs))
-        
+
+        norm_factor = 1
+        if abs(constant) >= 1000000:
+            k = math.log10(abs(constant) / 1000000)
+            norm_factor = 10 ** k
+        constant /= norm_factor
+
         for constr_idx, row_entries in constr_nonant_map.items():
             pi = farkas_values[constr_idx]
             if abs(pi) < 1e-12:
@@ -66,15 +75,9 @@ def solve_subproblem(nonanticipativity_lookup):
             
             for var_idx, coeff in row_entries:
                 vname = nonant_idx_to_name[var_idx]
-                dv_coefficients[vname] -= coeff * pi
+                dv_coefficients[vname] -= (coeff * pi) / norm_factor
     
-#        norm_factor = abs(constant)
-#        if norm_factor > 1e+6:
-#            constant /= norm_factor
-#            for key in dv_coefficients:
-#                dv_coefficients[key] /= norm_factor
-    
-    return _worker_model.objVal, constant, dict(dv_coefficients), feasibility_flag, status
+    return objective_value, constant, dict(dv_coefficients), feasibility_flag, status
 
 def add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, master_var_cache):
     all_feasible = all(subproblem_feasibility.values())
@@ -111,6 +114,78 @@ def add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subprobl
     
     return cut_exprs
 
+def add_multiple_cuts_2(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_paths, master_var_cache):
+    cut_exprs = {}
+    for sp_id in scenario_paths:
+        constant = subproblem_constants[sp_id]
+        dv_dict = subproblem_dv_coefficients[sp_id]
+        if subproblem_feasibility.get(sp_id, False):
+            theta_var = master_var_cache[f"theta[{sp_id}]"]
+            cut_exprs[sp_id] = theta_var - constant - quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+        else:
+            cut_exprs[sp_id] = constant + quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+
+    return cut_exprs
+
+def minimum_sum_contiguous_subarray(array):
+    n = len(array)
+    
+    min_ending_here = array[0]
+    min_so_far = array[0]
+    
+    current_start = 0
+    current_end = 0
+    
+    best_start = 0
+    best_end = 0
+    
+    for i in range(1, n):
+        if array[i] < min_ending_here + array[i]:
+            min_ending_here = array[i]
+            current_start = i
+            current_end = i
+        else:
+            min_ending_here = min_ending_here + array[i]
+            current_end = i
+        
+        if min_ending_here < min_so_far:
+            min_so_far = min_ending_here
+            best_start = current_start
+            best_end = current_end
+    
+    q_lb = best_start + 1
+    q_ub = best_end + 1
+    
+    return min_so_far, q_lb, q_ub
+
+def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility):
+    cut_expressions = {}
+
+    for sp_id, sub_feas in subproblem_feasibility.items():
+        if sub_feas:
+            continue
+
+        sp_seperation_data = seperation_data[sp_id]
+        electricity_demand = sp_seperation_data['electricity_demand']
+        heat_demand = sp_seperation_data['heat_demand']
+        num_subterms = len(electricity_demand)
+        
+        electricity_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
+        electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
+        min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(electricity_contiguous_array)
+
+        if min_sum_e + electricity_storage_const < 0:        
+            cut_expressions[f'ValidInequality_Elec_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
+
+        heat_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) - heat_demand[q] for q in range(num_subterms)]
+        heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
+        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array)
+
+        if min_sum_h + heat_storage_const < 0:            
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum(coeff * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
+
+    return cut_expressions
+
 def write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag):
     lines = ['-' * 30, f"Iteration {iteration}:"]
     
@@ -120,7 +195,6 @@ def write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coeffic
         if all_feasible:
             for sp_id in scenario_path_probabilities.keys():
                 parts = [f"theta[{sp_id}] >= {subproblem_constants[sp_id]:.3f}"]
-                
                 for dv_name, dv_coef in subproblem_dv_coefficients[sp_id].items():
                     if abs(dv_coef) > 1e-6:
                         sign = '+' if dv_coef >= 0 else '-'
@@ -239,6 +313,7 @@ def benders_callback(model, where):
         futures = {sp_id: call_back_data['executors'][sp_id].submit(solve_subproblem, nonanticipativity_lookup) for sp_id in call_back_data['scenario_paths'].keys()}
         subproblem_results = {sp_id: future.result() for sp_id, future in futures.items()}
         subproblem_execution_time = time.time() - subproblem_start_time
+        call_back_data['total_subproblem_time'] += subproblem_execution_time
 
         subproblem_objectives = {sp_id: result[0] for sp_id, result in subproblem_results.items()}
         subproblem_constants = {sp_id: result[1] for sp_id, result in subproblem_results.items()}
@@ -248,13 +323,16 @@ def benders_callback(model, where):
         
         unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
         if unexpected_statuses:
-            status_names = {1:'LOADED', 2:'OPTIMAL', 3:'INFEASIBLE', 4:'INF_OR_UNBD', 5:'UNBOUNDED'}
             with open(os.path.join(call_back_data['results_directory'], 'SubproblemStatusLog.txt'), 'a') as status_file:
                 for sp_id, status in unexpected_statuses:
-                    status_name = status_names.get(status, f'UNKNOWN({status})')
-                    status_file.write(f"Iteration {call_back_data['iteration']}: Subproblem {sp_id} status: {status_name}\n")
+                    status_file.write(f"Iteration {call_back_data['iteration']}: Subproblem {sp_id} status: {status}\n")
         
         all_feasible = all(subproblem_feasibility.values())
+
+        if all_feasible:
+            call_back_data['optimality_cut_iterations'] += 1
+        else:
+            call_back_data['feasibility_cut_iterations'] += 1
         
         if call_back_data['multi_cut_flag']:
             if 'theta_vars' not in call_back_data:
@@ -276,12 +354,22 @@ def benders_callback(model, where):
             scenario_path_keys = list(call_back_data['scenario_paths'].keys())
             subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_keys)
             upper_bound = current_obj - model.cbGetSolution(call_back_data['theta_var']) + subproblem_obj_sum
-            cut_result = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, call_back_data['master_var_cache'])
-            if isinstance(cut_result, list):
-                for cut_expression in cut_result:
+            cut_expressions = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, call_back_data['master_var_cache'])
+            if isinstance(cut_expressions, list):
+                for cut_expression in cut_expressions:
                     model.cbLazy(cut_expression >= 0)
             else:
-                model.cbLazy(cut_result >= 0)
+                model.cbLazy(cut_expressions >= 0)
+
+        valid_inequality_derivation_time = 0
+        if not all_feasible and call_back_data['valid_inequalities_flag']:
+            valid_inequality_start_time = time.time()
+            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility)
+            for cut_name, cut_expression in valid_ineq_cut_expressions.items():
+                model.cbLazy(cut_expression >= 0)
+            valid_inequality_derivation_time = time.time() - valid_inequality_start_time
+            call_back_data['total_valid_inequality_time'] += valid_inequality_derivation_time
+            call_back_data['valid_inequalities_added'] += len(valid_ineq_cut_expressions)
 
         with call_back_data['lock']:
             if call_back_data['cuts_file']:
@@ -304,26 +392,30 @@ def benders_callback(model, where):
                 f"Upper Bound: {call_back_data['best_upper_bound']:.2f}",
                 f"Lower Bound: {call_back_data['best_lower_bound']:.2f}",
                 f"Gap: {(100 * gap):.2f}%",
-                f"Iteration Time: {time.time() - iteration_start_time:.2f} seconds",
-                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds"
+                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds",
+                f"Iteration Time: {time.time() - iteration_start_time:.2f} seconds"
             ]
+            
+            if valid_inequality_derivation_time > 0:
+                log_lines.append(f"Valid Inequality Derivation Time: {valid_inequality_derivation_time:.2f} seconds")
+            
             call_back_data['log_file'].write('\n'.join(log_lines) + '\n')
             call_back_data['log_file'].flush()
 
-            if all_feasible and gap < call_back_data['tolerance']:
+            call_back_data['total_iteration_time'] += time.time() - iteration_start_time
+
+            if gap < call_back_data['tolerance']:
                 model.terminate()
 
 def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initial_tech, emission_limits, electricity_demand, heat_demand, 
-                      budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, discount_factor, scenario_paths, 
+                      budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, log_file, discount_factor, scenario_paths, 
                       scenario_path_probabilities, tolerance, benders_without_feasibility_flag, multi_cut_flag, callback_flag, write_cuts_flag, 
-                      continuous_flag, feasibility_cut_intervals, master_threads, threads_per_worker, incumbent_solution):
+                      continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution):
     
     if benders_without_feasibility_flag:
         from benders_model_feas import MasterProblemModel, SubProblemModel, OperationalNonanticipativityModel
     else:
         from benders_model import MasterProblemModel, SubProblemModel, OperationalNonanticipativityModel
-
-    execution_start_time = time.time()
 
     executors = {}
     for scenario_path_id, scenario_path_nodes in scenario_paths.items():
@@ -335,14 +427,22 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         )
         executors[scenario_path_id] = executor
 
-    master_model = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, feasibility_cut_intervals, tolerance)
+    master_model, seperation_data = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance)
 
-    log_file = open(os.path.join(results_directory, 'BendersLog.txt'), 'w')
     cuts_file = open(os.path.join(results_directory, 'GeneratedCuts.txt'), 'w') if write_cuts_flag else None
 
     nonant_vars = [var for var in master_model.getVars() if not var.varName.startswith("theta")]
     nonant_var_names = [var.varName for var in nonant_vars]
     master_var_cache = {var.varName: var for var in master_model.getVars()}
+
+    total_master_time = 0
+    total_iteration_time = 0
+    total_subproblem_time = 0
+    total_valid_inequality_time = 0
+
+    feasibility_cut_iterations = 0
+    optimality_cut_iterations = 0
+    valid_inequalities_added = 0
 
     if incumbent_solution is not None:
         futures = {sp_id: executors[sp_id].submit(solve_subproblem, incumbent_solution) for sp_id in scenario_paths.keys()}
@@ -356,12 +456,12 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         
         if all_incumbent_feasible:            
             if multi_cut_flag:
-                cut_exprs = add_multiple_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_paths, master_var_cache)
-                for sp_id, cut_expr in cut_exprs.items():
-                    master_model.addConstr(cut_expr >= 0, name=f"incumbent_opt_cut_{sp_id}")
+                cut_expressions = add_multiple_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_paths, master_var_cache)
+                for sp_id, cut_expression in cut_expressions.items():
+                    master_model.addConstr(cut_expression >= 0, name=f"incumbent_opt_cut_{sp_id}")
             else:
-                cut_expr = add_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_path_probabilities, master_var_cache)
-                master_model.addConstr(cut_expr >= 0, name="incumbent_opt_cut")
+                cut_expressions = add_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_path_probabilities, master_var_cache)
+                master_model.addConstr(cut_expressions >= 0, name="incumbent_opt_cut")
             
             master_model.update()
             
@@ -375,7 +475,6 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
 
     if callback_flag:
         master_model.setParam('LazyConstraints', 1)
-        nonant_var_names = [var.varName for var in nonant_vars]
 
         master_model._callback_data = {
             'iteration': 0,
@@ -392,30 +491,47 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             'nonant_vars': nonant_vars,
             'nonant_var_names': nonant_var_names,
             'master_var_cache': master_var_cache,
+            'continuous_flag': continuous_flag,
+            'valid_inequalities_flag': valid_inequalities_flag,
+            'seperation_data': seperation_data,
             'tolerance': tolerance,
             'results_directory': results_directory,
-            'continuous_flag': continuous_flag
+            'total_iteration_time': total_iteration_time,
+            'total_subproblem_time': total_subproblem_time,
+            'total_valid_inequality_time': total_valid_inequality_time,
+            'valid_inequalities_added': valid_inequalities_added,
+            'feasibility_cut_iterations': feasibility_cut_iterations,
+            'optimality_cut_iterations': optimality_cut_iterations
         }
 
+        master_start_time = time.time()
         master_model.optimize(benders_callback)
+
+        total_master_time = time.time() - master_start_time
+        total_iteration_time = master_model._callback_data['total_iteration_time']
+        total_subproblem_time = master_model._callback_data['total_subproblem_time']
+        total_valid_inequality_time = master_model._callback_data['total_valid_inequality_time']
+        valid_inequalities_added = master_model._callback_data['valid_inequalities_added']
         iteration = master_model._callback_data['iteration']
+        feasibility_cut_iterations = master_model._callback_data['feasibility_cut_iterations']
+        optimality_cut_iterations = master_model._callback_data['optimality_cut_iterations']
         best_upper_bound = master_model._callback_data['best_upper_bound']
-        lower_bound = master_model._callback_data['best_lower_bound']
+        best_lower_bound = master_model._callback_data['best_lower_bound']
         best_ub_lookup = master_model._callback_data['best_ub_lookup']
 
     else:
         iteration = 0
-        max_iterations = 10000
         best_upper_bound = float('inf')
         best_lower_bound = float('-inf')
         best_ub_lookup = None
         previous_cut_data = None
 
-        while iteration < max_iterations:
+        while True:
             iteration += 1
             master_start_time = time.time()
             master_model.optimize()
             master_execution_time = time.time() - master_start_time
+            total_master_time += master_execution_time
             
             if continuous_flag:
                 lower_bound = master_model.ObjVal
@@ -432,6 +548,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             futures = {sp_id: executors[sp_id].submit(solve_subproblem, nonanticipativity_lookup) for sp_id in scenario_paths.keys()}
             subproblem_results = {sp_id: futures[sp_id].result() for sp_id in futures.keys()}
             subproblem_execution_time = time.time() - subproblem_start_time
+            total_subproblem_time += subproblem_execution_time
 
             subproblem_objectives = {sp_id: result[0] for sp_id, result in subproblem_results.items()}
             subproblem_constants = {sp_id: result[1] for sp_id, result in subproblem_results.items()}
@@ -441,14 +558,17 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             
             unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
             if unexpected_statuses:
-                status_names = {1:'LOADED', 2:'OPTIMAL', 3:'INFEASIBLE', 4:'INF_OR_UNBD', 5:'UNBOUNDED'}
                 with open(os.path.join(results_directory, 'SubproblemStatusLog.txt'), 'a') as status_file:
                     for sp_id, status in unexpected_statuses:
-                        status_name = status_names.get(status, f'UNKNOWN({status})')
-                        status_file.write(f"Iteration {iteration}: Subproblem {sp_id} status: {status_name}\n")
+                        status_file.write(f"Iteration {iteration}: Subproblem {sp_id} status: {status}\n")
 
             all_feasible = all(subproblem_feasibility.values())
-            
+
+            if all_feasible:
+                optimality_cut_iterations += 1
+            else:
+                feasibility_cut_iterations += 1
+
             if multi_cut_flag:
                 upper_bound = master_model.ObjVal - sum([master_var_cache[f"theta[{sp_id}]"].X * sp_prob for sp_id, sp_prob in scenario_path_probabilities.items()]) + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
                 cut_expressions = add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_paths, master_var_cache)
@@ -457,16 +577,33 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                     master_model.addConstr(cut_expression >= 0, name=cut_name)
             else:
                 upper_bound = master_model.ObjVal - master_var_cache["theta"].X + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
-                cut_result = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, master_var_cache)
+                cut_expressions = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, master_var_cache)
                 
-                if isinstance(cut_result, list):
-                    for idx, cut_expression in enumerate(cut_result):
+                if isinstance(cut_expressions, list):
+                    for idx, cut_expression in enumerate(cut_expressions):
                         master_model.addConstr(cut_expression >= 0, name=f'FeasibilityCut_{iteration}_{idx}')
                 else:
-                    master_model.addConstr(cut_result >= 0, name=f'OptimalityCut_{iteration}')
+                    master_model.addConstr(cut_expressions >= 0, name=f'OptimalityCut_{iteration}')
+
+            valid_inequality_derivation_time = 0
+            valid_ineq_cut_expressions = None
+            if not all_feasible and valid_inequalities_flag:
+                valid_inequality_start_time = time.time()
+                valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility)
+                for cut_name, cut_expression in valid_ineq_cut_expressions.items():
+                    master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{iteration}')
+                valid_inequality_derivation_time = time.time() - valid_inequality_start_time
+                total_valid_inequality_time += valid_inequality_derivation_time
+                valid_inequalities_added += len(valid_ineq_cut_expressions)
 
             if cuts_file:
                 write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag)
+                
+                if not all_feasible and valid_inequalities_flag and valid_ineq_cut_expressions:
+                    cuts_file.write("Valid Inequalities:\n")
+                    for ineq_name in valid_ineq_cut_expressions.keys():
+                        cuts_file.write(f"  {ineq_name}\n")
+                    cuts_file.flush()
 
             current_cut_data = (subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility)
             if previous_cut_data is not None and not continuous_flag:
@@ -484,7 +621,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                 best_ub_vars = master_model.getVars()
                 best_ub_var_values = master_model.getAttr('X', best_ub_vars)
                 best_ub_lookup = {var.varName: val for var, val in zip(best_ub_vars, best_ub_var_values) if not var.varName.startswith("theta")}
-    
+
             gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
             log_lines = [
                 '-' * 30,
@@ -492,27 +629,41 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                 f"Upper Bound: {best_upper_bound:.2f}",
                 f"Lower Bound: {best_lower_bound:.2f}",
                 f"Gap: {(100 * gap):.2f}%",
-                f"Master Problem Execution Time: {master_execution_time:.2f} seconds",
-                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds"
+                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds",
+                f"Master Problem Execution Time: {master_execution_time:.2f} seconds"
             ]
+
+            if valid_inequality_derivation_time != 0:
+                log_lines.append(f"Valid Inequality Derivation Time: {valid_inequality_derivation_time:.2f} seconds")
+
             log_file.write('\n'.join(log_lines) + '\n')
             log_file.flush()
 
-            if all_feasible and gap < tolerance:
-                break
+            total_iteration_time += time.time() - master_start_time
 
+            if gap < tolerance:
+                break
+    
     final_gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
     summary_lines = [
-        "=" * 30,
-        "Final Summary",
-        f"Total Iterations: {iteration}",
-        f"Best Upper Bound: {best_upper_bound:.2f}",
-        f"Final Lower Bound: {best_lower_bound:.2f}",
-        f"Final Gap: {(100 * final_gap):.2f}%",
-        f"Total Time: {time.time() - execution_start_time:.2f} seconds"
+        '=' * 30,
+        'Final Summary',
+        f'Best Upper Bound: {best_upper_bound:.2f}',
+        f'Final Lower Bound: {best_lower_bound:.2f}',
+        f'Final Gap: {(100 * final_gap):.2f}%',
+        f'Number of Iterations: {iteration}',
+        f'Number of Iterations with Feasibility Cuts: {feasibility_cut_iterations}',
+        f'Number of Iterations with Optimality Cuts: {optimality_cut_iterations}',
+        f'Subproblem Time: {total_subproblem_time:.2f} seconds',
+        f'Master Time: {total_master_time:.2f} seconds',
+        f'Iteration Time: {total_iteration_time:.2f} seconds'
     ]
+
+    if valid_inequalities_flag:
+        summary_lines.append(f'Valid Inequality Time: {total_valid_inequality_time:.2f} seconds')
+        summary_lines.append(f'Number of Valid Inequalities: {valid_inequalities_added}')
+
     log_file.write('\n'.join(summary_lines) + '\n')
-    log_file.close()
     
     if cuts_file:
         cuts_file.close()
@@ -578,8 +729,8 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         h_carry_prev = sol_values[f'heatcarry_{leaf_parent_node_id}[{last_period},{numSubterms}]']
         h_carry_curr = sol_values[f'heatcarry_{leaf_node_id}[{last_period + 1},1]']
         
-        e_discharge = max(0, e_discharge_eff * (e_carry_prev - e_carry_curr))
-        h_discharge = max(0, h_discharge_eff * (h_carry_prev - h_carry_curr))
+        e_discharge = max(0, 1/round(1/e_discharge_eff,3) * (e_carry_prev - e_carry_curr))
+        h_discharge = max(0, 1/round(1/h_discharge_eff,3) * (h_carry_prev - h_carry_curr))
         
         discharge_lines.append(f"electricitydischarge_{leaf_node_id}[{last_period + 1},1] {e_discharge}\n")
         discharge_lines.append(f"heatdischarge_{leaf_node_id}[{last_period + 1},1] {h_discharge}\n")

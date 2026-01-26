@@ -86,7 +86,8 @@ class ScenarioNode:
         for tech in self.techNodeList:
             for v in range(tech.NumVersion):
                 for t in self.stageSubperiods:
-                    self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
+                    rounding = 3 if tech in self.electricitystoragetechNodeList or tech in self.heatstoragetechNodeList else 0
+                    self.v_Plus[tech.tree.type,v,t].Obj = round(self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))]),rounding)
 
     def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor):
         for t in self.stageSubperiods:
@@ -94,35 +95,35 @@ class ScenarioNode:
             e_cost_t = electricity_purchasing_cost[t] * discount_t
             h_cost_t = heat_purchasing_cost[t] * discount_t
             for p in self.stageSubterms:
-                self.e_Purchase[t,p].Obj = e_cost_t
-                self.h_Purchase[t,p].Obj = h_cost_t
+                self.e_Purchase[t,p].Obj = round(e_cost_t,3)
+                self.h_Purchase[t,p].Obj = round(h_cost_t,3)
 
     def AddSubproblemDemandConstraints(self, model, electricity_demand, heat_demand):
         if self.id != 0:
             for t_ in self.stageSubperiods:
                 for p, periodic_demand in enumerate(electricity_demand[t_]):
-                    model.addConstr(quicksum((self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].periodic_electricity[v][p]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*(1 - (self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))) for i, tech in enumerate(self.electricitygenerationtechNodeList) for v in range(self.electricitygenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].lifetime[v]) + self.e_Purchase[t_, p+1] - self.e_Charging[t_, p+1] + self.e_Discharging[t_, p+1] - self.e_Satisfied[t_, p+1] >= 0, name = f'N{self.id}_Electricity_Demand_Met_by_Generation_Inventory_{t_}_{p}')
-                    model.addConstr(quicksum(((-1/self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].periodic_heat_transfer_cop[v][p])*self.y_Transfer[p+1,tech.tree.type,v,t,t_]) for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.e_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Electricity_{t_}_{p}')
+                    model.addConstr(quicksum(round(self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].periodic_electricity[v][p]*(1 - (self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t))),0)*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t] for i, tech in enumerate(self.electricitygenerationtechNodeList) for v in range(self.electricitygenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].lifetime[v]) + self.e_Purchase[t_, p+1] - self.e_Charging[t_, p+1] + self.e_Discharging[t_, p+1] - self.e_Satisfied[t_, p+1] >= 0, name = f'N{self.id}_Electricity_Demand_Met_by_Generation_Inventory_{t_}_{p}')
+                    model.addConstr(quicksum((round(-1/self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].periodic_heat_transfer_cop[v][p],3)*self.y_Transfer[p+1,tech.tree.type,v,t,t_]) for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.e_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Electricity_{t_}_{p}')
                 for p, periodic_demand in enumerate(heat_demand[t_]):
-                    model.addConstr(quicksum((self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].periodic_heat[v][p]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*(1 - (self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))) for i, tech in enumerate(self.heatgenerationtechNodeList) for v in range(self.heatgenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].lifetime[v]) + self.h_Purchase[t_, p+1] - self.h_Charging[t_, p+1] + self.h_Discharging[t_, p+1] - self.h_Satisfied[t_, p+1] >= 0, name = f'N{self.id}_Heat_Demand_Met_by_Generation_Inventory_{t_}_{p}')
-                    model.addConstr(quicksum(((1 - (self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].degradation_rate[v]*(t_ - t)))*self.y_Transfer[p+1,tech.tree.type,v,t,t_]) for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.h_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Heat_{t_}_{p}')
+                    model.addConstr(quicksum(round(self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].periodic_heat[v][p]*(1 - (self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t))),0)*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t] for i, tech in enumerate(self.heatgenerationtechNodeList) for v in range(self.heatgenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].lifetime[v]) + self.h_Purchase[t_, p+1] - self.h_Charging[t_, p+1] + self.h_Discharging[t_, p+1] - self.h_Satisfied[t_, p+1] >= 0, name = f'N{self.id}_Heat_Demand_Met_by_Generation_Inventory_{t_}_{p}')
+                    model.addConstr(quicksum((round(1 - (self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].degradation_rate[v]*(t_ - t)),3)*self.y_Transfer[p+1,tech.tree.type,v,t,t_]) for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.h_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Heat_{t_}_{p}')
 
     def AddSubproblemInventoryBalanceConstraints(self, model):
         if self.id != 0:
             for t_ in self.stageSubperiods:
                 for p in self.stageSubterms:
                     if p == 1:
-                        model.addConstr(self.e_Carrying[t_,p] - self.FindAncestorFromDiff(t_-1,t_).e_Carrying[t_-1, self.numSubterms] - self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] + (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p] == 0 , name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                        model.addConstr(self.h_Carrying[t_,p] - self.FindAncestorFromDiff(t_-1,t_).h_Carrying[t_-1, self.numSubterms] - self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] + (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p] == 0 , name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.e_Carrying[t_,p] - self.FindAncestorFromDiff(t_-1,t_).e_Carrying[t_-1, self.numSubterms] - self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] + round(1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0],3) * self.e_Discharging[t_,p] == 0 , name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.h_Carrying[t_,p] - self.FindAncestorFromDiff(t_-1,t_).h_Carrying[t_-1, self.numSubterms] - self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] + round(1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0],3) * self.h_Discharging[t_,p] == 0 , name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
                     else:
-                        model.addConstr(self.e_Carrying[t_,p] - self.e_Carrying[t_,p-1] - self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] + (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p] == 0 , name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                        model.addConstr(self.h_Carrying[t_,p] - self.h_Carrying[t_,p-1] - self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] + (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p] == 0 , name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.e_Carrying[t_,p] - self.e_Carrying[t_,p-1] - self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] + round(1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0],3) * self.e_Discharging[t_,p] == 0 , name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.h_Carrying[t_,p] - self.h_Carrying[t_,p-1] - self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] + round(1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0],3) * self.h_Discharging[t_,p] == 0 , name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
 
     def AddSubproblemStorageCapacityConstraints(self, model):
         for t_ in self.stageSubperiods:
             for p in self.stageSubterms:
-                model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].electricity_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.electricitystoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].lifetime[v]) - self.e_Carrying[t_,p] >= 0, name = f'N{self.id}_ElectricityStorageCapacity_{t_}_{p}')
-                model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].heat_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.heatstoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].lifetime[v]) - self.h_Carrying[t_,p] >= 0, name = f'N{self.id}_HeatStorageCapacity_{t_}_{p}')
+                model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*round(self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].electricity_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))),3) for i, tech in enumerate(self.electricitystoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].lifetime[v]) - self.e_Carrying[t_,p] >= 0, name = f'N{self.id}_ElectricityStorageCapacity_{t_}_{p}')
+                model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*round(self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].heat_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))),3) for i, tech in enumerate(self.heatstoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].lifetime[v]) - self.h_Carrying[t_,p] >= 0, name = f'N{self.id}_HeatStorageCapacity_{t_}_{p}')
 
     def AddSubproblemHeatTransferCapacityConstraints(self, model):
         for t_ in self.stageSubperiods:
@@ -141,7 +142,8 @@ class ScenarioNode:
     def AddBudgetConstraints(self, model, budget):
         for t in self.stageSubperiods:
             if budget[t] is not None:
-                model.addConstr(-quicksum(tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) >= -budget[t], name = f'N{self.id}_Budget_{t}')
+                round_three_tech_nodes = [tech for tech in self.techNodeList if tech in self.electricitystoragetechNodeList or tech in self.heatstoragetechNodeList]
+                model.addConstr(-quicksum((round(tech.cost[v],3) if tech in round_three_tech_nodes else round(tech.cost[v],0)) * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) >= -budget[t], name = f'N{self.id}_Budget_{t}')
 
     def AddSpatialConstraints(self, model, spatial_limit):
         for t_ in self.stageSubperiods:
@@ -166,25 +168,65 @@ class ScenarioNode:
                             ub_v = math.floor(budget[t] / tech.cost[v])
                             model.addConstr(ub_v >= self.v_Plus[tech.tree.type,v,t], name = f'N{self.id}_UpperBound_v_plus_{tech.tree.type}_{v}_{t}')
 
-    def AddValidInequalities(self, model, electricity_demand, heat_demand, feasibility_cut_intervals):
+    def ComputeSeperationData(self):
         t_ = self.stageSubperiods[-1]
+        seperation_data = {
+                "electricitystoragetechNodeList": {},
+                "electricitygenerationtechNodeList": {},
+                "heatstoragetechNodeList": {},
+                "heatgenerationtechNodeList": {},
+                "heattransfertechNodeList": {},
+        }
 
-        interval_pairs = [(p_lb, p_ub) for idx, p_lb in enumerate(self.stageSubterms) for p_ub in self.stageSubterms[idx:]] if feasibility_cut_intervals is True else feasibility_cut_intervals
+        for i, tech in enumerate(self.electricitystoragetechNodeList):
+            for v in range(tech.NumVersion):
+                for t in range(0, t_ + 1):
+                    ancestor = self.FindAncestorFromDiff(t, t_)
+                    if t <= t_ < t + ancestor.electricitystoragetechNodeList[i].lifetime[v]:
+                        coeff = round(self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0] * ancestor.electricitystoragetechNodeList[i].electricity_storage_capacity[v] * (1 - (ancestor.electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))),3)
+                        seperation_data["electricitystoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
 
-        for p_lb, p_ub in interval_pairs:
-                
-                electricity_generation = quicksum(self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].periodic_electricity[v][p-1]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*(1 - (self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.electricitygenerationtechNodeList) for v in range(self.electricitygenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) for p in range(p_lb,p_ub+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].lifetime[v])
-                heat_generation = quicksum(self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].periodic_heat[v][p-1]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*(1 - (self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.heatgenerationtechNodeList) for v in range(self.heatgenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) for p in range(p_lb,p_ub+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].lifetime[v])
+        for i, tech in enumerate(self.heatstoragetechNodeList):
+            for v in range(tech.NumVersion):
+                for t in range(0, t_ + 1):
+                    ancestor = self.FindAncestorFromDiff(t, t_)
+                    if t <= t_ < t + ancestor.heatstoragetechNodeList[i].lifetime[v]:
+                        coeff = round(self.heatstoragetechNodeList[0].storage_discharging_efficiency[0] * ancestor.heatstoragetechNodeList[i].heat_storage_capacity[v] * (1 - (ancestor.heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))), 3)
+                        seperation_data["heatstoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
 
-                transfer_heat_contribution = quicksum((1 - (self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].degradation_rate[v]*(t_ - t)))*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].heat_transfer_capacity[v] for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) for p in range(p_lb,p_ub+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v])
+        for i, tech in enumerate(self.electricitygenerationtechNodeList):
+            for v in range(self.electricitygenerationtechNodeList[i].NumVersion):
+                for t in range(0, t_ + 1):
+                    ancestor = self.FindAncestorFromDiff(t, t_)
+                    if t <= t_ < t + ancestor.electricitygenerationtechNodeList[i].lifetime[v]:
+                        coeff_list = []
+                        for p in range(len(ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v])):
+                            coeff = round(ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v][p] * (1 - (ancestor.electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t))), 0)
+                            coeff_list.append(coeff)
+                        seperation_data["electricitygenerationtechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff_list
 
-                electricity_storage_capacity = quicksum(self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].electricity_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.electricitystoragetechNodeList) for v in range(tech.NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].lifetime[v])
-                heat_storage_capacity = quicksum(self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].heat_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.heatstoragetechNodeList) for v in range(tech.NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].lifetime[v])
+        for i, tech in enumerate(self.heatgenerationtechNodeList):
+            for v in range(self.heatgenerationtechNodeList[i].NumVersion):
+                for t in range(0, t_ + 1):
+                    ancestor = self.FindAncestorFromDiff(t, t_)
+                    if t <= t_ < t + ancestor.heatgenerationtechNodeList[i].lifetime[v]:
+                        coeff_list = []
+                        for p in range(len(ancestor.heatgenerationtechNodeList[i].periodic_heat[v])):
+                            coeff = round(ancestor.heatgenerationtechNodeList[i].periodic_heat[v][p] * (1 - (ancestor.heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t))), 0)
+                            coeff_list.append(coeff)
+                        seperation_data["heatgenerationtechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff_list
 
-                model.addConstr(electricity_generation + electricity_storage_capacity >= sum(electricity_demand[t_][p_lb-1:p_ub]), name=f'N{self.id}_ValidInequality_Electricity_{p_lb}_{p_ub}')
-                model.addConstr(heat_generation + transfer_heat_contribution + heat_storage_capacity >= sum(heat_demand[t_][p_lb-1:p_ub]), name=f'N{self.id}_ValidInequality_Heat_{p_lb}_{p_ub}')
+        for i, tech in enumerate(self.heattransfertechNodeList):
+            for v in range(self.heattransfertechNodeList[i].NumVersion):
+                for t in range(0, t_ + 1):
+                    ancestor = self.FindAncestorFromDiff(t, t_)
+                    if t <= t_ < t + ancestor.heattransfertechNodeList[i].lifetime[v]:
+                        coeff = ancestor.heattransfertechNodeList[i].heat_transfer_capacity[v] * round(1 - (ancestor.heattransfertechNodeList[i].degradation_rate[v]*(t_ - t)),3)
+                        seperation_data["heattransfertechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
 
-def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, feasibility_cut_intervals, tolerance):
+        return seperation_data
+
+def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
     model_key = 'MasterProblem'
     master_env = Env(empty=True)
     master_env.start()
@@ -198,28 +240,15 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
         node.InitializeCurrentTech(initial_tech)
         node.AddUpperBoundsForIP(model, budget)
 
-#
-        if feasibility_cut_intervals:
-            if isinstance(feasibility_cut_intervals, str):
-                import json
-                with open(feasibility_cut_intervals, 'r') as f:
-                    loaded_intervals = json.load(f)
-                node_specific_intervals = {}
-                for leaf_node_str, intervals in loaded_intervals.items():
-                    leaf_node = int(leaf_node_str)
-                    node_specific_intervals[leaf_node] = [(interval[1], interval[2]) for interval in intervals]
-            
+    seperation_data = None
+    if valid_inequalities_flag:
+        seperation_data = {}
+        for node in scenarioTree.nodes:
             if len(node.children) == 0:
-                if isinstance(feasibility_cut_intervals, str):
-                    leaf_intervals = node_specific_intervals.get(node.id, [])
-                    if leaf_intervals:
-                        node.AddValidInequalities(model, electricity_demand, heat_demand, leaf_intervals)
-                    else:
-                        node.AddValidInequalities(model, electricity_demand, heat_demand, True)
-                else:
-                    node.AddValidInequalities(model, electricity_demand, heat_demand, feasibility_cut_intervals)
-#
-
+                path_id = next(path_id for path_id, scenario_nodes in scenario_paths.items() if node.id in scenario_nodes)
+                seperation_data[path_id] = node.ComputeSeperationData()
+                seperation_data[path_id]['electricity_demand'] = electricity_demand[-1]
+                seperation_data[path_id]['heat_demand'] = heat_demand[-1]
 
     if multi_cut_flag:
         theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
@@ -234,9 +263,10 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     model.setParam('Threads', threads)
     model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
+    model.setParam('FeasibilityTol', 1e-8)
 
     if not continuous_flag:
-        model.setParam('MIPFocus', 3)
+        #model.setParam('MIPFocus', 3)
         model.setParam('TimeLimit', 86400)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')
@@ -244,7 +274,10 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
 
     model.update()
 
-    return model
+    #lp_filename = os.path.join(results_directory, f'{model_key}.lp')
+    #model.write(lp_filename)
+
+    return model, seperation_data
 
 def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor):
     global _worker_model, _worker_env

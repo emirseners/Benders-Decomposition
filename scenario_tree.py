@@ -46,7 +46,6 @@ class ScenarioTree:
             for leaf in nextLeaves:
                 self.leaves.append(leaf)
 
-
 class TechnologyTree:
     def __init__(self, type, segment, numSubperiods, numSubterms, lifetime, initialCost, degradation_rate, initialOMcost, depreciation_rate, OMcostchangebyyear, spatial_requirement, periodic_electricity_generation=None, periodic_heat_generation=None, electricity_storage_capacity=None, heat_storage_capacity=None, heat_transfer_capacity=None, periodic_heat_transfer_cop=None, storage_charging_efficiency=None, storage_discharging_efficiency=None):
         self.type = type
@@ -126,14 +125,11 @@ class TechnologyNode:
         child = TechnologyNode(len(self.tree.nodes), self, prob, self.tree, self.NumVersion, [i*costMult for i in self.cost], ([[x*effMult for x in i] for i in self.periodic_electricity] if self.periodic_electricity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat] if self.periodic_heat is not None else None), ([i*effMult for i in self.electricity_storage_capacity] if self.electricity_storage_capacity is not None else None), ([i*effMult for i in self.heat_storage_capacity] if self.heat_storage_capacity is not None else None), ([i*effMult for i in self.heat_transfer_capacity] if self.heat_transfer_capacity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat_transfer_cop] if self.periodic_heat_transfer_cop is not None else None), self.storage_charging_efficiency, self.storage_discharging_efficiency, self.lifetime, self.degradation_rate, self.OMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement)
         self.children.append(child)
 
-
 def extract_dataframe_parameters(df, row_index):
     return [df.iloc[row_index, i] for i in range(1, df.shape[1])]
 
-
 def create_advancement_parameters(advancements_dict, num_multipliers, parameter_row):
     return [advancements_dict[num_multipliers][col][parameter_row] for col in advancements_dict[num_multipliers].columns if col != "Metrics"]
-
 
 def create_technology_tree(tech_type, segment, initial_data, periodic_data, num_subperiods, num_subterms, **kwargs):
     base_params = {
@@ -157,13 +153,11 @@ def create_technology_tree(tech_type, segment, initial_data, periodic_data, num_
     
     return TechnologyTree(tech_type, segment, num_subperiods, num_subterms, **base_params)
 
-
 def construct_technology_with_multipliers(technology, num_stages, advancements_dict, advancement_key):
     technology.ConstructByMultipliers(numStages=num_stages,
         probabilities=create_advancement_parameters(advancements_dict, advancement_key, 0),
         costMultiplier=create_advancement_parameters(advancements_dict, advancement_key, 3),
         efficiencyMultiplier=create_advancement_parameters(advancements_dict, advancement_key, 4))
-
 
 def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advancements, wind_initial, wind_periodic_generation, wind_advancements, electricity_storage_initial, electricity_storage_advancements, 
                            parabolic_trough_initial, parabolic_trough_periodic_generation, parabolic_trough_advancements, heat_pump_initial, heat_pump_cop, heat_pump_advancements, 

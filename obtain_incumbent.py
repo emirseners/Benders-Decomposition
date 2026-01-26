@@ -1,4 +1,4 @@
-from mssp_model import CampusApplicationMSSP
+from mssp_model import MSSPProblemModel
 from scenario_tree import generate_scenario_tree
 import pandas as pd
 import re
@@ -42,7 +42,7 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
         input_data['heat_storage_initial'], worst_technology_advancements['heat_storage'], 
         numSubterms, numSubperiods, numStages, 1, mssp_flag=True)
     
-    worst_sp_model = CampusApplicationMSSP(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
+    worst_sp_model = MSSPProblemModel(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
                         input_data['heat_demand'], worst_scenario_path_initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'],
                         input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, tolerance, 'WorstIncumbent')
     

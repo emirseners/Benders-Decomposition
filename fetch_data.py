@@ -25,10 +25,10 @@ def fetch_data(numStages, numSubperiods, numSubterms):
 
     electricity_demand_2023 = electricity_demand_2023[24:]
     electricity_demand_2024 = electricity_demand_2024[:(8760-24)]
-    base_electricity_demand = [(val_2023 + val_2024) / 2 for val_2023, val_2024 in zip(electricity_demand_2023, electricity_demand_2024)]
+    base_electricity_demand = [int(round((val_2023 + val_2024) / 2,0)) for val_2023, val_2024 in zip(electricity_demand_2023, electricity_demand_2024)]
 
     heat_demand_2024 = pd.read_excel(os.path.join('Data', 'Demand.xlsx'), sheet_name='2024 Hourly Heat Demand')['Consumption (kWh/h)'].tolist()
-    heat_demand_2024 = [x if x >= 100 else ((lambda lv, rv: (lv + rv) / 2 if lv is not None and rv is not None else x)(next((heat_demand_2024[j] for j in range(i - 1, -1, -1) if heat_demand_2024[j] >= 100), None), next((heat_demand_2024[j] for j in range(i + 1, len(heat_demand_2024)) if heat_demand_2024[j] >= 100), None))) for i, x in enumerate(heat_demand_2024)]
+    heat_demand_2024 = [x if x >= 100 else ((lambda lv, rv: int(round((lv + rv) / 2,0)) if lv is not None and rv is not None else x)(next((heat_demand_2024[j] for j in range(i - 1, -1, -1) if heat_demand_2024[j] >= 100), None), next((heat_demand_2024[j] for j in range(i + 1, len(heat_demand_2024)) if heat_demand_2024[j] >= 100), None))) for i, x in enumerate(heat_demand_2024)]
     base_heat_demand = heat_demand_2024[:(8760-24)]
 
     solar_initial = pd.read_excel(os.path.join('Data', 'Solar Power.xlsx'), sheet_name='Initial values')
@@ -65,7 +65,7 @@ def fetch_data(numStages, numSubperiods, numSubterms):
     heat_pump_cop = [clustering_n_consecutive_data_points_cop(version_cop, int((8760-24)/numSubterms)) for version_cop in base_heat_pump_cop].copy()
 
     electricity_purchasing_cost = [0.144 for _ in range(numStages*numSubperiods+1)]
-    heat_purchasing_cost = [0.037436 for _ in range(numStages*numSubperiods+1)]
+    heat_purchasing_cost = [0.0374 for _ in range(numStages*numSubperiods+1)]
     emission_limits = [None for _ in range(numStages*numSubperiods)] + [0]
     budget = [0, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000]
     #budget = [0] + [None for _ in range(15)]
