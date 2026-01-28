@@ -18,8 +18,9 @@ def solve_subproblem(nonanticipativity_lookup):
 
     nonant_vars = _worker_model._nonant_vars
     nonant_var_names = _worker_model._nonant_var_names
-    bounds = [nonanticipativity_lookup[name] for name in nonant_var_names]
-    
+    lookup_get = nonanticipativity_lookup.__getitem__
+    bounds = [lookup_get(name) for name in nonant_var_names]
+
     _worker_model.setAttr('LB', nonant_vars, bounds)
     _worker_model.setAttr('UB', nonant_vars, bounds)
 
@@ -48,14 +49,13 @@ def solve_subproblem(nonanticipativity_lookup):
         
         for constr_idx, row_entries in constr_nonant_map.items():
             pi = dual_values[constr_idx]
-            if abs(pi) < 1e-12:
+            if pi == 0.0:
                 continue
             
             for var_idx, coeff in row_entries:
-                vname = nonant_idx_to_name[var_idx]
-                dv_coef = -coeff * pi
-                dv_coefficients[vname] += dv_coef
-                constant -= dv_coef * nonant_values[var_idx]
+                dv_coef = coeff * pi
+                dv_coefficients[nonant_idx_to_name[var_idx]] -= dv_coef
+                constant += dv_coef * nonant_values[var_idx]
     else:
         objective_value = float('inf')
         all_rhs = _worker_model._all_rhs
@@ -68,14 +68,15 @@ def solve_subproblem(nonanticipativity_lookup):
             norm_factor = 10 ** k
         constant /= norm_factor
 
+        inv_norm_factor = 1.0 / norm_factor
         for constr_idx, row_entries in constr_nonant_map.items():
             pi = farkas_values[constr_idx]
-            if abs(pi) < 1e-12:
+            if pi == 0.0:
                 continue
             
+            scaled_pi = pi * inv_norm_factor
             for var_idx, coeff in row_entries:
-                vname = nonant_idx_to_name[var_idx]
-                dv_coefficients[vname] -= (coeff * pi) / norm_factor
+                dv_coefficients[nonant_idx_to_name[var_idx]] -= coeff * scaled_pi
     
     return objective_value, constant, dict(dv_coefficients), feasibility_flag, status
 
@@ -158,7 +159,7 @@ def minimum_sum_contiguous_subarray(array):
     
     return min_so_far, q_lb, q_ub
 
-def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility):
+def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility, callback_flag=False, master_model=None):
     cut_expressions = {}
 
     for sp_id, sub_feas in subproblem_feasibility.items():
@@ -170,16 +171,25 @@ def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibi
         heat_demand = sp_seperation_data['heat_demand']
         num_subterms = len(electricity_demand)
         
-        electricity_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
-        electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
+        if callback_flag:
+            electricity_contiguous_array = [sum(coeff_array[q] * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
+            electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
+            heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
+            heat_contiguous_array = [sum(coeff_array[q] * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + heat_transfer_per_subperiod - heat_demand[q] for q in range(num_subterms)]
+            heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
+
+        else:
+            electricity_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
+            electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
+            heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
+            heat_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + heat_transfer_per_subperiod - heat_demand[q] for q in range(num_subterms)]
+            heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
+
         min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(electricity_contiguous_array)
+        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array)
 
         if min_sum_e + electricity_storage_const < 0:        
             cut_expressions[f'ValidInequality_Elec_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
-
-        heat_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) - heat_demand[q] for q in range(num_subterms)]
-        heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
-        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array)
 
         if min_sum_h + heat_storage_const < 0:            
             cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum(coeff * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
@@ -315,11 +325,17 @@ def benders_callback(model, where):
         subproblem_execution_time = time.time() - subproblem_start_time
         call_back_data['total_subproblem_time'] += subproblem_execution_time
 
-        subproblem_objectives = {sp_id: result[0] for sp_id, result in subproblem_results.items()}
-        subproblem_constants = {sp_id: result[1] for sp_id, result in subproblem_results.items()}
-        subproblem_dv_coefficients = {sp_id: result[2] for sp_id, result in subproblem_results.items()}
-        subproblem_feasibility = {sp_id: result[3] for sp_id, result in subproblem_results.items()}
-        subproblem_statuses = {sp_id: result[4] for sp_id, result in subproblem_results.items()}
+        subproblem_objectives = {}
+        subproblem_constants = {}
+        subproblem_dv_coefficients = {}
+        subproblem_feasibility = {}
+        subproblem_statuses = {}
+        for sp_id, result in subproblem_results.items():
+            subproblem_objectives[sp_id] = result[0]
+            subproblem_constants[sp_id] = result[1]
+            subproblem_dv_coefficients[sp_id] = result[2]
+            subproblem_feasibility[sp_id] = result[3]
+            subproblem_statuses[sp_id] = result[4]
         
         unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
         if unexpected_statuses:
@@ -338,9 +354,10 @@ def benders_callback(model, where):
             if 'theta_vars' not in call_back_data:
                 call_back_data['theta_vars'] = {sp_id: call_back_data['master_var_cache'][f"theta[{sp_id}]"] for sp_id in call_back_data['scenario_paths'].keys()}
                 call_back_data['theta_vars_list'] = list(call_back_data['theta_vars'].values())
+                call_back_data['scenario_path_keys'] = list(call_back_data['scenario_paths'].keys())
             theta_values = model.cbGetSolution(call_back_data['theta_vars_list'])
             scenario_path_probabilities = call_back_data['scenario_path_probabilities']
-            scenario_path_keys = list(call_back_data['scenario_paths'].keys())
+            scenario_path_keys = call_back_data['scenario_path_keys']
             theta_sum = sum(tv * scenario_path_probabilities[sp_id] for tv, sp_id in zip(theta_values, scenario_path_keys))
             subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_keys)
             upper_bound = current_obj - theta_sum + subproblem_obj_sum
@@ -350,8 +367,9 @@ def benders_callback(model, where):
         else:
             if 'theta_var' not in call_back_data:
                 call_back_data['theta_var'] = call_back_data['master_var_cache']["theta"]
+                call_back_data['scenario_path_keys'] = list(call_back_data['scenario_paths'].keys())
             scenario_path_probabilities = call_back_data['scenario_path_probabilities']
-            scenario_path_keys = list(call_back_data['scenario_paths'].keys())
+            scenario_path_keys = call_back_data['scenario_path_keys']
             subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_keys)
             upper_bound = current_obj - model.cbGetSolution(call_back_data['theta_var']) + subproblem_obj_sum
             cut_expressions = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, call_back_data['master_var_cache'])
@@ -364,7 +382,7 @@ def benders_callback(model, where):
         valid_inequality_derivation_time = 0
         if not all_feasible and call_back_data['valid_inequalities_flag']:
             valid_inequality_start_time = time.time()
-            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility)
+            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility, callback_flag=True, master_model=model)
             for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                 model.cbLazy(cut_expression >= 0)
             valid_inequality_derivation_time = time.time() - valid_inequality_start_time
@@ -470,11 +488,11 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             if write_cuts_flag:
                 write_cuts(cuts_file, 0, incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_path_probabilities, multi_cut_flag)
 
-        log_file.write("-" * 30 + "\n")
         log_file.flush()
 
     if callback_flag:
         master_model.setParam('LazyConstraints', 1)
+        master_model.setParam('PreCrush', 1)
 
         master_model._callback_data = {
             'iteration': 0,
@@ -550,11 +568,17 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             subproblem_execution_time = time.time() - subproblem_start_time
             total_subproblem_time += subproblem_execution_time
 
-            subproblem_objectives = {sp_id: result[0] for sp_id, result in subproblem_results.items()}
-            subproblem_constants = {sp_id: result[1] for sp_id, result in subproblem_results.items()}
-            subproblem_dv_coefficients = {sp_id: result[2] for sp_id, result in subproblem_results.items()}
-            subproblem_feasibility = {sp_id: result[3] for sp_id, result in subproblem_results.items()}
-            subproblem_statuses = {sp_id: result[4] for sp_id, result in subproblem_results.items()}
+            subproblem_objectives = {}
+            subproblem_constants = {}
+            subproblem_dv_coefficients = {}
+            subproblem_feasibility = {}
+            subproblem_statuses = {}
+            for sp_id, result in subproblem_results.items():
+                subproblem_objectives[sp_id] = result[0]
+                subproblem_constants[sp_id] = result[1]
+                subproblem_dv_coefficients[sp_id] = result[2]
+                subproblem_feasibility[sp_id] = result[3]
+                subproblem_statuses[sp_id] = result[4]
             
             unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
             if unexpected_statuses:

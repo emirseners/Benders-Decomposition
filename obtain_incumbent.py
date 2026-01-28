@@ -53,15 +53,16 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
     
     for v in worst_sp_model.getVars():
         dv_name, node_id, indices = parse(v.varName)
+        node_stage = worst_scenario_path_scenario_tree.nodes[node_id].stage
         
-        for each_node_id in stage_node_ranges[node_id]:
+        for each_node_id in stage_node_ranges[node_stage]:
             
             if dv_name == 'plus':
                 incumbent_solution[f'plus_{each_node_id}[{indices[0]},{indices[1]},{indices[2]}]'] = v.X
             
             if benders_without_feasibility_flag:
 
-                if node_id == numStages:
+                if node_stage == numStages:
 
                     last_subperiod = numStages * numSubperiods
                     second_to_last_subperiod = last_subperiod - 1
