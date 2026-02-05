@@ -6,6 +6,7 @@ import time
 import threading
 import concurrent.futures
 from collections import defaultdict
+import numpy as np
 
 _cached_worker_model = None
 
@@ -45,7 +46,8 @@ def solve_subproblem(nonanticipativity_lookup):
     if feasibility_flag:
         objective_value = _worker_model.objVal
         constant = objective_value
-        dual_values = _worker_model.getAttr('Pi', all_constrs)
+        dual_values_list = _worker_model.getAttr('Pi', all_constrs)
+        dual_values = np.array(dual_values_list)
         
         for constr_idx, row_entries in constr_nonant_map.items():
             pi = dual_values[constr_idx]
@@ -59,24 +61,18 @@ def solve_subproblem(nonanticipativity_lookup):
     else:
         objective_value = float('inf')
         all_rhs = _worker_model._all_rhs
-        farkas_values = _worker_model.getAttr('FarkasDual', all_constrs)
-        constant = sum(pi * rhs for pi, rhs in zip(farkas_values, all_rhs))
+        farkas_values_list = _worker_model.getAttr('FarkasDual', all_constrs)
+        farkas_values = np.array(farkas_values_list)
+        rhs_array = np.array(all_rhs)
+        constant = np.dot(farkas_values, rhs_array)
 
-        norm_factor = 1
-        if abs(constant) >= 1000000:
-            k = math.log10(abs(constant) / 1000000)
-            norm_factor = 10 ** k
-        constant /= norm_factor
-
-        inv_norm_factor = 1.0 / norm_factor
         for constr_idx, row_entries in constr_nonant_map.items():
             pi = farkas_values[constr_idx]
             if pi == 0.0:
                 continue
             
-            scaled_pi = pi * inv_norm_factor
             for var_idx, coeff in row_entries:
-                dv_coefficients[nonant_idx_to_name[var_idx]] -= coeff * scaled_pi
+                dv_coefficients[nonant_idx_to_name[var_idx]] -= coeff * pi
     
     return objective_value, constant, dict(dv_coefficients), feasibility_flag, status
 
@@ -85,14 +81,25 @@ def add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasib
 
     if all_feasible:
         constant_term = sum(subproblem_constants[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_probabilities)
-        cut_expr = master_var_cache["theta"] - constant_term - quicksum(dv_coef * scenario_path_probabilities[sp_id] * master_var_cache[dv_name] for sp_id, dict_of_dvs in subproblem_dv_coefficients.items() for dv_name, dv_coef in dict_of_dvs.items())
+        aggregated_coeffs = defaultdict(float)
+        for sp_id, dv_dict in subproblem_dv_coefficients.items():
+            sp_prob = scenario_path_probabilities[sp_id]
+            for dv_name, dv_coef in dv_dict.items():
+                aggregated_coeffs[dv_name] += dv_coef * sp_prob
+        max_abs_coef = max((abs(v) for v in aggregated_coeffs.values()), default=0.0)
+        max_abs_value = max(abs(constant_term), max_abs_coef)
+        scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+        cut_expr = (master_var_cache["theta"] / scale_factor) - (constant_term / scale_factor) - quicksum((agg_coef / scale_factor) * master_var_cache[dv_name] for dv_name, agg_coef in aggregated_coeffs.items())
         return cut_expr
     else:
         cut_exprs = []
         for sp_id, is_feasible in subproblem_feasibility.items():
             if not is_feasible:
+                constant = subproblem_constants[sp_id]
                 dv_dict = subproblem_dv_coefficients[sp_id]
-                cut_expr = subproblem_constants[sp_id] + quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+                max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
+                scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+                cut_expr = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
                 cut_exprs.append(cut_expr)
         return cut_exprs
 
@@ -105,13 +112,17 @@ def add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subprobl
             theta_var = master_var_cache[f"theta[{sp_id}]"]
             constant = subproblem_constants[sp_id]
             dv_dict = subproblem_dv_coefficients[sp_id]
-            cut_exprs[sp_id] = theta_var - constant - quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
+            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+            cut_exprs[sp_id] = (theta_var / scale_factor) - (constant / scale_factor) - quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
     else:
         for sp_id, sub_feas in subproblem_feasibility.items():
             if not sub_feas:
                 constant = subproblem_constants[sp_id]
                 dv_dict = subproblem_dv_coefficients[sp_id]
-                cut_exprs[sp_id] = constant + quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+                max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
+                scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+                cut_exprs[sp_id] = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
     
     return cut_exprs
 
@@ -120,11 +131,15 @@ def add_multiple_cuts_2(subproblem_constants, subproblem_dv_coefficients, subpro
     for sp_id in scenario_paths:
         constant = subproblem_constants[sp_id]
         dv_dict = subproblem_dv_coefficients[sp_id]
-        if subproblem_feasibility.get(sp_id, False):
+        if subproblem_feasibility[sp_id]:
             theta_var = master_var_cache[f"theta[{sp_id}]"]
-            cut_exprs[sp_id] = theta_var - constant - quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
+            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+            cut_exprs[sp_id] = (theta_var / scale_factor) - (constant / scale_factor) - quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
         else:
-            cut_exprs[sp_id] = constant + quicksum(dv_coef * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
+            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
+            cut_exprs[sp_id] = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
 
     return cut_exprs
 
@@ -167,32 +182,43 @@ def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibi
             continue
 
         sp_seperation_data = seperation_data[sp_id]
-        electricity_demand = sp_seperation_data['electricity_demand']
-        heat_demand = sp_seperation_data['heat_demand']
-        num_subterms = len(electricity_demand)
+        electricity_demand = np.array(sp_seperation_data['electricity_demand'])
+        heat_demand = np.array(sp_seperation_data['heat_demand'])
+        
+        elec_gen_vars = list(sp_seperation_data["electricitygenerationtechNodeList"].keys())
+        elec_gen_coefs = np.array([sp_seperation_data["electricitygenerationtechNodeList"][v] for v in elec_gen_vars]).T
+        
+        heat_gen_vars = list(sp_seperation_data["heatgenerationtechNodeList"].keys())
+        heat_gen_coefs = np.array([sp_seperation_data["heatgenerationtechNodeList"][v] for v in heat_gen_vars]).T
         
         if callback_flag:
-            electricity_contiguous_array = [sum(coeff_array[q] * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
+            elec_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in elec_gen_vars])
+            heat_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in heat_gen_vars])
             electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
             heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
-            heat_contiguous_array = [sum(coeff_array[q] * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + heat_transfer_per_subperiod - heat_demand[q] for q in range(num_subterms)]
             heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
-
         else:
-            electricity_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) - electricity_demand[q] for q in range(num_subterms)]
+            elec_gen_vals = np.array([master_var_cache[v].X for v in elec_gen_vars])
+            heat_gen_vals = np.array([master_var_cache[v].X for v in heat_gen_vars])
             electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
             heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
-            heat_contiguous_array = [sum(coeff_array[q] * master_var_cache[dv_name].X for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + heat_transfer_per_subperiod - heat_demand[q] for q in range(num_subterms)]
             heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
 
-        min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(electricity_contiguous_array)
-        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array)
+        electricity_contiguous_array = elec_gen_coefs @ elec_gen_vals - electricity_demand
+        heat_contiguous_array = (heat_gen_coefs @ heat_gen_vals) + heat_transfer_per_subperiod - heat_demand
 
-        if min_sum_e + electricity_storage_const < 0:        
-            cut_expressions[f'ValidInequality_Elec_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
+        min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(electricity_contiguous_array.tolist())
+        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array.tolist())
 
-        if min_sum_h + heat_storage_const < 0:            
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum(sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1)) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum(coeff * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum(coeff * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
+        if min_sum_e + electricity_storage_const < 0:
+            electricity_demand_sum = sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
+            scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+
+        if min_sum_h + heat_storage_const < 0:
+            heat_demand_sum = sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
+            scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
 
     return cut_expressions
 
@@ -667,6 +693,9 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
 
             if gap < tolerance:
                 break
+
+    lp_filename = os.path.join(results_directory, 'MasterModel.lp')
+    master_model.write(lp_filename)
     
     final_gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
     summary_lines = [
@@ -753,8 +782,8 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         h_carry_prev = sol_values[f'heatcarry_{leaf_parent_node_id}[{last_period},{numSubterms}]']
         h_carry_curr = sol_values[f'heatcarry_{leaf_node_id}[{last_period + 1},1]']
         
-        e_discharge = max(0, 1/round(1/e_discharge_eff,3) * (e_carry_prev - e_carry_curr))
-        h_discharge = max(0, 1/round(1/h_discharge_eff,3) * (h_carry_prev - h_carry_curr))
+        e_discharge = max(0, e_discharge_eff * (e_carry_prev - e_carry_curr))
+        h_discharge = max(0, h_discharge_eff * (h_carry_prev - h_carry_curr))
         
         discharge_lines.append(f"electricitydischarge_{leaf_node_id}[{last_period + 1},1] {e_discharge}\n")
         discharge_lines.append(f"heatdischarge_{leaf_node_id}[{last_period + 1},1] {h_discharge}\n")

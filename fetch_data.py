@@ -25,21 +25,21 @@ def fetch_data(numStages, numSubperiods, numSubterms):
 
     electricity_demand_2023 = electricity_demand_2023[24:]
     electricity_demand_2024 = electricity_demand_2024[:(8760-24)]
-    base_electricity_demand = [int(round((val_2023 + val_2024) / 2,0)) for val_2023, val_2024 in zip(electricity_demand_2023, electricity_demand_2024)]
+    base_electricity_demand = [(val_2023 + val_2024) / 2 for val_2023, val_2024 in zip(electricity_demand_2023, electricity_demand_2024)]
 
     heat_demand_2024 = pd.read_excel(os.path.join('Data', 'Demand.xlsx'), sheet_name='2024 Hourly Heat Demand')['Consumption (kWh/h)'].tolist()
-    heat_demand_2024 = [x if x >= 100 else ((lambda lv, rv: int(round((lv + rv) / 2,0)) if lv is not None and rv is not None else x)(next((heat_demand_2024[j] for j in range(i - 1, -1, -1) if heat_demand_2024[j] >= 100), None), next((heat_demand_2024[j] for j in range(i + 1, len(heat_demand_2024)) if heat_demand_2024[j] >= 100), None))) for i, x in enumerate(heat_demand_2024)]
+    heat_demand_2024 = [x if x >= 100 else ((lambda lv, rv: (lv + rv) / 2 if lv is not None and rv is not None else x)(next((heat_demand_2024[j] for j in range(i - 1, -1, -1) if heat_demand_2024[j] >= 100), None), next((heat_demand_2024[j] for j in range(i + 1, len(heat_demand_2024)) if heat_demand_2024[j] >= 100), None))) for i, x in enumerate(heat_demand_2024)]
     base_heat_demand = heat_demand_2024[:(8760-24)]
 
     solar_initial = pd.read_excel(os.path.join('Data', 'Solar Power.xlsx'), sheet_name='Initial values')
     solar_advancements = {1: pd.read_excel(os.path.join('Data', 'Solar Power.xlsx'), sheet_name='Advancements1'),
                           2: pd.read_excel(os.path.join('Data', 'Solar Power.xlsx'), sheet_name='Advancements2'),
                           3: pd.read_excel(os.path.join('Data', 'Solar Power.xlsx'), sheet_name='Advancements3')}
-    base_solar_periodic_generation = pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='solar').T.values.tolist()[:(8760-24)]
+    base_solar_periodic_generation = [row[:(8760-24)] for row in pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='solar').T.values.tolist()]
 
     wind_initial = pd.read_excel(os.path.join('Data', 'Wind Power.xlsx'), sheet_name='Initial values')
     wind_advancements = {1: pd.read_excel(os.path.join('Data', 'Wind Power.xlsx'), sheet_name='Advancements1')}
-    base_wind_periodic_generation = pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='wind').T.values.tolist()[:((8760-24))]
+    base_wind_periodic_generation = [row[:(8760-24)] for row in pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='wind').T.values.tolist()]
 
     electricity_storage_initial = pd.read_excel(os.path.join('Data', 'Electricity Storage.xlsx'), sheet_name='Initial values')
     electricity_storage_advancements = {1: pd.read_excel(os.path.join('Data', 'Electricity Storage.xlsx'), sheet_name='Advancements1'),
@@ -48,11 +48,11 @@ def fetch_data(numStages, numSubperiods, numSubterms):
 
     parabolic_trough_initial = pd.read_excel(os.path.join('Data', 'Parabolic Trough.xlsx'), sheet_name='Initial values')
     parabolic_trough_advancements = {1: pd.read_excel(os.path.join('Data', 'Parabolic Trough.xlsx'), sheet_name='Advancements1')}
-    base_parabolic_trough_periodic_generation = pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='parabolic trough').T.values.tolist()[:((8760-24))]
+    base_parabolic_trough_periodic_generation = [row[:(8760-24)] for row in pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='parabolic trough').T.values.tolist()]
 
     heat_pump_initial = pd.read_excel(os.path.join('Data', 'Heat Pump.xlsx'), sheet_name='Initial values')
     heat_pump_advancements = {1: pd.read_excel(os.path.join('Data', 'Heat Pump.xlsx'), sheet_name='Advancements1')}
-    base_heat_pump_cop = pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='heat pump').T.values.tolist()[:((8760-24))]
+    base_heat_pump_cop = [row[:(8760-24)] for row in pd.read_excel(os.path.join('Data', 'Technology Subterm Data.xlsx'), sheet_name='heat pump').T.values.tolist()]
 
     heat_storage_initial = pd.read_excel(os.path.join('Data', 'Heat Storage.xlsx'), sheet_name='Initial values')
     heat_storage_advancements = {1: pd.read_excel(os.path.join('Data', 'Heat Storage.xlsx'), sheet_name='Advancements1')}

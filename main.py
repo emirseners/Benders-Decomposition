@@ -14,12 +14,12 @@ if __name__ == '__main__':
     numMultipliers = 2
     number_of_technologies_with_multipliers = 2
     benders_without_feasibility_flag = False
-    valid_inequalities_flag = True
+    valid_inequalities_flag = False
     worst_sp_incumbent_flag = False
-    continuous_flag = True
+    continuous_flag = False
     multi_cut_flag = True
     callback_flag = False
-    write_cuts_flag = True
+    write_cuts_flag = False
     master_threads = 3
     threads_per_worker = 1
 
