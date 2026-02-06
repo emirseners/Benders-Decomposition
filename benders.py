@@ -174,8 +174,24 @@ def minimum_sum_contiguous_subarray(array):
     
     return min_so_far, q_lb, q_ub
 
-def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility, callback_flag=False, master_model=None):
+def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
     cut_expressions = {}
+
+    if initial_iteration:
+        for sp_id in scenario_paths.keys():
+            sp_seperation_data = seperation_data[sp_id]
+            electricity_demand = np.array(sp_seperation_data['electricity_demand'])
+            heat_demand = np.array(sp_seperation_data['heat_demand'])
+
+            electricity_demand_sum = sum(electricity_demand[q-1] for q in range(1, numSubterms + 1))
+            scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+
+            heat_demand_sum = sum(heat_demand[q-1] for q in range(1, numSubterms + 1))
+            scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (numSubterms - 1 + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
+
+        return cut_expressions
 
     for sp_id, sub_feas in subproblem_feasibility.items():
         if sub_feas:
@@ -408,7 +424,7 @@ def benders_callback(model, where):
         valid_inequality_derivation_time = 0
         if not all_feasible and call_back_data['valid_inequalities_flag']:
             valid_inequality_start_time = time.time()
-            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility, callback_flag=True, master_model=model)
+            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility=subproblem_feasibility, callback_flag=True, master_model=model)
             for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                 model.cbLazy(cut_expression >= 0)
             valid_inequality_derivation_time = time.time() - valid_inequality_start_time
@@ -479,6 +495,11 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
     nonant_var_names = [var.varName for var in nonant_vars]
     master_var_cache = {var.varName: var for var in master_model.getVars()}
 
+    if valid_inequalities_flag:
+        valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, initial_iteration=True, numSubterms=numSubterms, scenario_paths=scenario_paths)
+        for cut_name, cut_expression in valid_ineq_cut_expressions.items():
+            master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{0}')
+
     total_master_time = 0
     total_iteration_time = 0
     total_subproblem_time = 0
@@ -486,7 +507,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
 
     feasibility_cut_iterations = 0
     optimality_cut_iterations = 0
-    valid_inequalities_added = 0
+    valid_inequalities_added = len(valid_ineq_cut_expressions) if valid_inequalities_flag else 0
 
     if incumbent_solution is not None:
         futures = {sp_id: executors[sp_id].submit(solve_subproblem, incumbent_solution) for sp_id in scenario_paths.keys()}
@@ -639,7 +660,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             valid_ineq_cut_expressions = None
             if not all_feasible and valid_inequalities_flag:
                 valid_inequality_start_time = time.time()
-                valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility)
+                valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility=subproblem_feasibility)
                 for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                     master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{iteration}')
                 valid_inequality_derivation_time = time.time() - valid_inequality_start_time

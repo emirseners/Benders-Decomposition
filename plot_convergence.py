@@ -47,7 +47,7 @@ def plot_convergence(upper_bounds, lower_bounds, gaps, output_path=None):
 def main():
     numStages = 3
     numSubperiods = 5
-    numSubterms = 4368
+    numSubterms = 1092
     results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}'
     
     log_file_path = os.path.join(results_directory, 'BendersLog.txt')

@@ -227,7 +227,7 @@ class ScenarioNode:
                     for t in self.stageSubperiods:
                         if budget[t] is not None:
                             ub_v = math.floor(budget[t] / tech.cost[v])
-                            model.addConstr(ub_v >= self.v_Plus[tech.tree.type,v,t], name = f'N{self.id}_UpperBound_v_plus_{tech.tree.type}_{v}_{t}')
+                            self.v_Plus[tech.tree.type,v,t].ub = ub_v
 
 def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
     model_key = 'MasterProblem'

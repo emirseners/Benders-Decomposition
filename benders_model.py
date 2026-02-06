@@ -166,7 +166,7 @@ class ScenarioNode:
                     for t in self.stageSubperiods:
                         if budget[t] is not None:
                             ub_v = math.floor(budget[t] / tech.cost[v])
-                            model.addConstr(ub_v >= self.v_Plus[tech.tree.type,v,t], name = f'N{self.id}_UpperBound_v_plus_{tech.tree.type}_{v}_{t}')
+                            self.v_Plus[tech.tree.type,v,t].ub = ub_v
 
     def ComputeSeperationData(self):
         t_ = self.stageSubperiods[-1]

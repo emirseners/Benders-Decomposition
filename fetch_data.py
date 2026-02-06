@@ -15,6 +15,24 @@ def clustering_n_consecutive_data_points_cop(values, n):
         result.append(cluster_mean)
     return result
 
+def _read_sheet(sheet_name):
+    df = pd.read_excel(os.path.join("Data", "Robust Subterm Data.xlsx"), sheet_name=sheet_name)
+    data = df.fillna(0.0)
+
+    means = data.mean(axis=1).tolist()
+    half_ranges = ((data.max(axis=1) - data.min(axis=1)) / 2.0).tolist()
+
+    return means, half_ranges
+
+def obtain_robust_data(alpha):
+    solar_means, solar_hr = _read_sheet("solar")
+    wind_means, wind_hr = _read_sheet("wind")
+
+    base_solar_generation_data = [max(0, m - alpha * hr) for m, hr in zip(solar_means, solar_hr)][:(8760-24)]
+    base_wind_generation_data = [max(0, m - alpha * hr) for m, hr in zip(wind_means, wind_hr)][:(8760-24)]
+
+    return [base_solar_generation_data, [2*x for x in base_solar_generation_data]], [base_wind_generation_data]
+
 def fetch_data(numStages, numSubperiods, numSubterms):
     discount_factor = 0.97
 
@@ -56,6 +74,8 @@ def fetch_data(numStages, numSubperiods, numSubterms):
 
     heat_storage_initial = pd.read_excel(os.path.join('Data', 'Heat Storage.xlsx'), sheet_name='Initial values')
     heat_storage_advancements = {1: pd.read_excel(os.path.join('Data', 'Heat Storage.xlsx'), sheet_name='Advancements1')}
+
+    #base_solar_periodic_generation, base_wind_periodic_generation = obtain_robust_data(0)
 
     electricity_demand = clustering_n_consecutive_data_points(base_electricity_demand, int((8760-24)/numSubterms)).copy()
     heat_demand = clustering_n_consecutive_data_points(base_heat_demand, int((8760-24)/numSubterms)).copy()
