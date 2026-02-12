@@ -201,3 +201,34 @@ def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advan
     scenarioTree = ScenarioTree([solar, wind, electricity_storage, parabolic_trough, heat_pump, heat_storage], benders_without_feasibility_flag, mssp_flag)
 
     return scenarioTree, initial_tech
+
+def extract_stage_node_ranges(scenario_tree):
+    stage_node_ranges = {}
+    for node in scenario_tree.nodes:
+        stage_node_ranges.setdefault(node.stage, []).append(node.id)
+
+    for stage in stage_node_ranges:
+        stage_node_ranges[stage].sort()
+
+    return stage_node_ranges
+
+def extract_scenario_paths_and_probabilities(scenario_tree):
+    leaves = sorted((node for node in scenario_tree.nodes if len(node.children) == 0), key=lambda node: node.id)
+
+    scenario_paths = {}
+    scenario_path_probabilities = {}
+
+    for scenario_id, leaf in enumerate(leaves, start=1):
+        path = []
+        current_node = leaf
+
+        while current_node is not None:
+            path.append(current_node.id)
+            current_node = current_node.parent
+
+        path.reverse()
+
+        scenario_paths[scenario_id] = path
+        scenario_path_probabilities[scenario_id] = leaf.probability
+
+    return scenario_paths, scenario_path_probabilities
