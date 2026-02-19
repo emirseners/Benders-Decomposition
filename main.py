@@ -1,5 +1,6 @@
 import os
 import time
+import subprocess, sys
 from fetch_data import fetch_data
 from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
 from benders import CampusApplication
@@ -24,7 +25,7 @@ if __name__ == '__main__':
 
     tolerance = 0.01
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms)
+    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon = 0)
 
     scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, benders_without_feasibility_flag)
     stage_node_ranges = extract_stage_node_ranges(scenario_tree)
@@ -45,3 +46,5 @@ if __name__ == '__main__':
     summary_lines = [f"Total Time: {time.time() - execution_start_time:.2f} seconds"]
     log_file.write('\n'.join(summary_lines) + '\n')
     log_file.close()
+
+    subprocess.run([sys.executable, 'mssp_model.py'], check=True)

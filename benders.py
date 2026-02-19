@@ -1,6 +1,5 @@
-from gurobipy import GRB, Model, quicksum, Env
+from gurobipy import GRB, quicksum
 import os
-import math
 import copy
 import time
 import threading
@@ -150,8 +149,6 @@ def minimum_sum_contiguous_subarray(array):
     min_so_far = array[0]
     
     current_start = 0
-    current_end = 0
-    
     best_start = 0
     best_end = 0
     
@@ -159,20 +156,15 @@ def minimum_sum_contiguous_subarray(array):
         if array[i] < min_ending_here + array[i]:
             min_ending_here = array[i]
             current_start = i
-            current_end = i
         else:
-            min_ending_here = min_ending_here + array[i]
-            current_end = i
+            min_ending_here += array[i]
         
         if min_ending_here < min_so_far:
             min_so_far = min_ending_here
             best_start = current_start
-            best_end = current_end
+            best_end = i
     
-    q_lb = best_start + 1
-    q_ub = best_end + 1
-    
-    return min_so_far, q_lb, q_ub
+    return min_so_far, best_start + 1, best_end + 1
 
 def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
     cut_expressions = {}
@@ -789,10 +781,12 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             parts = line.strip().split()
             sol_values[parts[0]] = float(parts[1])
     
-    last_period = (numStages-1) * numSubperiods
+'''    last_period = (numStages-1) * numSubperiods
     e_discharge_eff = scenarioTree.nodes[-1].electricitystoragetechNodeList[0].storage_discharging_efficiency[0]
     h_discharge_eff = scenarioTree.nodes[-1].heatstoragetechNodeList[0].storage_discharging_efficiency[0]
-    
+    e_self_discharge_eff = scenarioTree.nodes[-1].electricitystoragetechNodeList[0].storage_self_discharge_rate[0]
+    h_self_discharge_eff = scenarioTree.nodes[-1].heatstoragetechNodeList[0].storage_self_discharge_rate[0]
+
     discharge_lines = []
     for scenario_path_id, scenario_path_nodes in scenario_paths.items():
         leaf_node_id = scenario_path_nodes[-1]
@@ -803,11 +797,11 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         h_carry_prev = sol_values[f'heatcarry_{leaf_parent_node_id}[{last_period},{numSubterms}]']
         h_carry_curr = sol_values[f'heatcarry_{leaf_node_id}[{last_period + 1},1]']
         
-        e_discharge = max(0, e_discharge_eff * (e_carry_prev - e_carry_curr))
-        h_discharge = max(0, h_discharge_eff * (h_carry_prev - h_carry_curr))
+        e_discharge = max(0, e_discharge_eff * (e_self_discharge_eff * e_carry_prev - e_carry_curr))
+        h_discharge = max(0, h_discharge_eff * (h_self_discharge_eff * h_carry_prev - h_carry_curr))
         
         discharge_lines.append(f"electricitydischarge_{leaf_node_id}[{last_period + 1},1] {e_discharge}\n")
         discharge_lines.append(f"heatdischarge_{leaf_node_id}[{last_period + 1},1] {h_discharge}\n")
     
     with open(final_sol_file, 'a') as f:
-        f.writelines(discharge_lines)
+        f.writelines(discharge_lines)'''

@@ -47,7 +47,7 @@ class ScenarioTree:
                 self.leaves.append(leaf)
 
 class TechnologyTree:
-    def __init__(self, type, segment, numSubperiods, numSubterms, lifetime, initialCost, degradation_rate, initialOMcost, depreciation_rate, OMcostchangebyyear, spatial_requirement, periodic_electricity_generation=None, periodic_heat_generation=None, electricity_storage_capacity=None, heat_storage_capacity=None, heat_transfer_capacity=None, periodic_heat_transfer_cop=None, storage_charging_efficiency=None, storage_discharging_efficiency=None):
+    def __init__(self, type, segment, numSubperiods, numSubterms, lifetime, initialCost, degradation_rate, initialOMcost, depreciation_rate, OMcostchangebyyear, spatial_requirement, periodic_electricity_generation=None, periodic_heat_generation=None, electricity_storage_capacity=None, heat_storage_capacity=None, heat_transfer_capacity=None, periodic_heat_transfer_cop=None, storage_charging_efficiency=None, storage_discharging_efficiency=None, storage_self_discharge_rate=None):
         self.type = type
         self.initialCost = initialCost
         self.periodic_electricity_generation = periodic_electricity_generation
@@ -58,6 +58,7 @@ class TechnologyTree:
         self.periodic_heat_transfer_cop = periodic_heat_transfer_cop
         self.storage_charging_efficiency = storage_charging_efficiency
         self.storage_discharging_efficiency = storage_discharging_efficiency
+        self.storage_self_discharge_rate = storage_self_discharge_rate
         self.nodes = []
         self.degradation_rate = degradation_rate
         self.initialOMcost = initialOMcost
@@ -69,8 +70,8 @@ class TechnologyTree:
         self.numSubperiods = numSubperiods
         self.numSubterms = numSubterms
         self.versions = len(initialCost)
-        self.preroot = TechnologyNode(0, None, 1, self, self.versions, [0 for _ in range(self.versions)], self.periodic_electricity_generation, self.periodic_heat_generation, self.electricity_storage_capacity, self.heat_storage_capacity, self.heat_transfer_capacity, self.periodic_heat_transfer_cop, self.storage_charging_efficiency, self.storage_discharging_efficiency, self.lifetime, self.degradation_rate, self.initialOMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement) # preroot is stage-0: the existing situation
-        self.root = TechnologyNode(1, self.preroot, 1, self, self.versions, self.initialCost, self.periodic_electricity_generation, self.periodic_heat_generation, self.electricity_storage_capacity, self.heat_storage_capacity, self.heat_transfer_capacity, self.periodic_heat_transfer_cop, self.storage_charging_efficiency, self.storage_discharging_efficiency, self.lifetime, self.degradation_rate, self.initialOMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement) #root is the inital decision making node.
+        self.preroot = TechnologyNode(0, None, 1, self, self.versions, [0 for _ in range(self.versions)], self.periodic_electricity_generation, self.periodic_heat_generation, self.electricity_storage_capacity, self.heat_storage_capacity, self.heat_transfer_capacity, self.periodic_heat_transfer_cop, self.storage_charging_efficiency, self.storage_discharging_efficiency, self.storage_self_discharge_rate, self.lifetime, self.degradation_rate, self.initialOMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement) # preroot is stage-0: the existing situation
+        self.root = TechnologyNode(1, self.preroot, 1, self, self.versions, self.initialCost, self.periodic_electricity_generation, self.periodic_heat_generation, self.electricity_storage_capacity, self.heat_storage_capacity, self.heat_transfer_capacity, self.periodic_heat_transfer_cop, self.storage_charging_efficiency, self.storage_discharging_efficiency, self.storage_self_discharge_rate, self.lifetime, self.degradation_rate, self.initialOMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement) #root is the inital decision making node.
 
     def ConstructByMultipliers(self, numStages, probabilities, costMultiplier, efficiencyMultiplier):
         leaves = [self.root]
@@ -87,7 +88,7 @@ class TechnologyTree:
                 leaves.append(leaf)
 
 class TechnologyNode:
-    def __init__(self, id_In, parent_In, probability_In, tree_In, versionnum_In, cost_In, periodic_electricity_In, periodic_heat_In, electricity_storage_capacity_In, heat_storage_capacity_In, heat_transfer_capacity_In, periodic_heat_transfer_cop_In, storage_charging_efficiency_In, storage_discharging_efficiency_In, lifetime_In, degradation_In, OMcost_In, depreciation_In, OMcostchangebyyear_In, spatial_requirement_In):
+    def __init__(self, id_In, parent_In, probability_In, tree_In, versionnum_In, cost_In, periodic_electricity_In, periodic_heat_In, electricity_storage_capacity_In, heat_storage_capacity_In, heat_transfer_capacity_In, periodic_heat_transfer_cop_In, storage_charging_efficiency_In, storage_discharging_efficiency_In, storage_self_discharge_rate_In, lifetime_In, degradation_In, OMcost_In, depreciation_In, OMcostchangebyyear_In, spatial_requirement_In):
         self.id = id_In
         self.parent = parent_In
 
@@ -115,6 +116,7 @@ class TechnologyNode:
         self.periodic_heat_transfer_cop = periodic_heat_transfer_cop_In
         self.storage_charging_efficiency = storage_charging_efficiency_In
         self.storage_discharging_efficiency = storage_discharging_efficiency_In
+        self.storage_self_discharge_rate = storage_self_discharge_rate_In
         self.degradation_rate = degradation_In
         self.OMcost = OMcost_In
         self.OMcostchangebyyear = OMcostchangebyyear_In
@@ -122,7 +124,7 @@ class TechnologyNode:
         self.spatial_requirement = spatial_requirement_In
 
     def AddChild(self, prob, costMult, effMult):
-        child = TechnologyNode(len(self.tree.nodes), self, prob, self.tree, self.NumVersion, [i*costMult for i in self.cost], ([[x*effMult for x in i] for i in self.periodic_electricity] if self.periodic_electricity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat] if self.periodic_heat is not None else None), ([i*effMult for i in self.electricity_storage_capacity] if self.electricity_storage_capacity is not None else None), ([i*effMult for i in self.heat_storage_capacity] if self.heat_storage_capacity is not None else None), ([i*effMult for i in self.heat_transfer_capacity] if self.heat_transfer_capacity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat_transfer_cop] if self.periodic_heat_transfer_cop is not None else None), self.storage_charging_efficiency, self.storage_discharging_efficiency, self.lifetime, self.degradation_rate, self.OMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement)
+        child = TechnologyNode(len(self.tree.nodes), self, prob, self.tree, self.NumVersion, [i*costMult for i in self.cost], ([[x*effMult for x in i] for i in self.periodic_electricity] if self.periodic_electricity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat] if self.periodic_heat is not None else None), ([i*effMult for i in self.electricity_storage_capacity] if self.electricity_storage_capacity is not None else None), ([i*effMult for i in self.heat_storage_capacity] if self.heat_storage_capacity is not None else None), ([i*effMult for i in self.heat_transfer_capacity] if self.heat_transfer_capacity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat_transfer_cop] if self.periodic_heat_transfer_cop is not None else None), self.storage_charging_efficiency, self.storage_discharging_efficiency, self.storage_self_discharge_rate, self.lifetime, self.degradation_rate, self.OMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement)
         self.children.append(child)
 
 def extract_dataframe_parameters(df, row_index):
@@ -172,7 +174,8 @@ def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advan
     electricity_storage = create_technology_tree('electricity_storage', 'electricity storage', electricity_storage_initial, None, numSubperiods, numSubterms,
         electricity_storage_capacity=extract_dataframe_parameters(electricity_storage_initial, 8),
         storage_charging_efficiency=extract_dataframe_parameters(electricity_storage_initial, 9),
-        storage_discharging_efficiency=extract_dataframe_parameters(electricity_storage_initial, 10))
+        storage_discharging_efficiency=extract_dataframe_parameters(electricity_storage_initial, 10),
+        storage_self_discharge_rate=[i ** int(8736/numSubterms) for i in extract_dataframe_parameters(electricity_storage_initial, 11)])
     construct_technology_with_multipliers(electricity_storage, numStages, electricity_storage_advancements, numMultipliers)
 
     parabolic_trough = create_technology_tree('parabolic_trough', 'heat generation', parabolic_trough_initial, parabolic_trough_periodic_generation, numSubperiods, numSubterms)
@@ -186,7 +189,8 @@ def generate_scenario_tree(solar_initial, solar_periodic_generation, solar_advan
     heat_storage = create_technology_tree('heat_storage', 'heat storage', heat_storage_initial, None, numSubperiods, numSubterms,
         heat_storage_capacity=extract_dataframe_parameters(heat_storage_initial, 8),
         storage_charging_efficiency=extract_dataframe_parameters(heat_storage_initial, 9),
-        storage_discharging_efficiency=extract_dataframe_parameters(heat_storage_initial, 10))
+        storage_discharging_efficiency=extract_dataframe_parameters(heat_storage_initial, 10),
+        storage_self_discharge_rate=[i ** int(8736/numSubterms) for i in extract_dataframe_parameters(heat_storage_initial, 11)])
     construct_technology_with_multipliers(heat_storage, numStages, heat_storage_advancements, 1)
 
     initial_tech = [

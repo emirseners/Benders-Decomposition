@@ -97,11 +97,11 @@ class ScenarioNodeMSSP:
             for t_ in self.stageSubperiods:
                 for p in self.stageSubterms:
                     if p == 1:
-                        model.addConstr(self.e_Carrying[t_,p] == self.FindAncestorFromDiff(t_-1,t_).e_Carrying[t_-1, self.numSubterms] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                        model.addConstr(self.h_Carrying[t_,p] == self.FindAncestorFromDiff(t_-1,t_).h_Carrying[t_-1, self.numSubterms] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.e_Carrying[t_,p] == self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * self.FindAncestorFromDiff(t_-1,t_).e_Carrying[t_-1, self.numSubterms] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.h_Carrying[t_,p] == self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * self.FindAncestorFromDiff(t_-1,t_).h_Carrying[t_-1, self.numSubterms] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
                     else:
-                        model.addConstr(self.e_Carrying[t_,p] == self.e_Carrying[t_,p-1] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                        model.addConstr(self.h_Carrying[t_,p] == self.h_Carrying[t_,p-1] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.e_Carrying[t_,p] == self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * self.e_Carrying[t_,p-1] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
+                        model.addConstr(self.h_Carrying[t_,p] == self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * self.h_Carrying[t_,p-1] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
 
     def AddStorageCapacityConstraints(self, model):
         for t_ in self.stageSubperiods:
@@ -214,13 +214,19 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
     model.update()
     model.optimize()
 
-    lp_filename = os.path.join(results_directory, f'{model_name}.lp')
-    model.write(lp_filename)
+    #lp_filename = os.path.join(results_directory, f'{model_name}.lp')
+    #model.write(lp_filename)
 
     if model.status == GRB.INFEASIBLE:
         model.computeIIS()
         iis_file_path = os.path.join(results_directory, f'{model_name}_IIS.ilp')
         model.write(iis_file_path)
+
+    sol_file_path = os.path.join(results_directory, f'{model_name}.sol')
+    with open(sol_file_path, 'w') as f:
+        f.write(f'# Objective value = {model.ObjVal}\n')
+        for var in model.getVars():
+            f.write(f'{var.VarName} {var.X}\n')
 
     return model
 
