@@ -1,11 +1,11 @@
-from gurobipy import GRB, quicksum
 import os
 import copy
 import time
 import threading
-import concurrent.futures
-from collections import defaultdict
 import numpy as np
+import concurrent.futures
+from gurobipy import GRB, quicksum
+from collections import defaultdict
 
 _cached_worker_model = None
 

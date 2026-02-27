@@ -1,6 +1,6 @@
-from gurobipy import GRB, Model, quicksum, Env
-import math
 import os
+import math
+from gurobipy import GRB, Model, quicksum, Env
 
 class ScenarioNode:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):

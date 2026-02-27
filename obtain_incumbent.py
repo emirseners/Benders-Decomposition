@@ -1,7 +1,7 @@
+import re
+import pandas as pd
 from mssp_model import MSSPProblemModel
 from scenario_tree import generate_scenario_tree
-import pandas as pd
-import re
 
 def parse(s: str):
     m = re.match(r'([a-zA-Z]+)_(\d+)\[([^\]]+)\]', s)

@@ -8,16 +8,11 @@ from scenario_tree import generate_scenario_tree, extract_scenario_paths_and_pro
 
 pio.renderers.default = "browser"
 
-def parse_var_name(var_name):
-	match = re.match(r"([^_]+)_([^\[]+)\[([^\]]+)\]", var_name)
-	if not match:
+def parse_var_name(name):
+	m = re.match(r'([^_]+)_([^\[]+)\[([^\]]+)\]', name)
+	if not m:
 		return None, None, []
-
-	dv_name = match.group(1).strip()
-	node_id = match.group(2).strip()
-	indices = [part.strip() for part in match.group(3).split(",")]
-
-	return dv_name, node_id, indices
+	return m.group(1).strip(), m.group(2).strip(), [p.strip() for p in m.group(3).split(',')]
 
 def load_op_variables_df(results_directory):
 	sol_filename = os.path.join(results_directory, "Results.sol")
@@ -29,7 +24,7 @@ def load_op_variables_df(results_directory):
 			if not line or line.startswith("#"):
 				continue
 
-			if "plus" in line:
+			if line.startswith("plus"):
 				continue
 
 			parts = line.split()
@@ -43,7 +38,7 @@ def load_op_variables_df(results_directory):
 			if not dv_name:
 				continue
 
-			if len(indices) >= 5:
+			if dv_name == "transferredheat":
 				year = indices[4]
 				subterm = indices[0]
 			else:
@@ -149,7 +144,7 @@ def compute_generation_data(numStages, numSubperiods, numSubterms, numMultiplier
 def main():
 	numStages = 3
 	numSubperiods = 5
-	numSubterms = 1092
+	numSubterms = 4368
 	numMultipliers = 2
 
 	operational_data, scenario_paths, electricity_demand, heat_demand = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers)

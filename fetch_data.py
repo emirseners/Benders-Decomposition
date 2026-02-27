@@ -1,6 +1,6 @@
-import pandas as pd
-import numpy as np
 import os
+import numpy as np
+import pandas as pd
 
 def clustering_n_consecutive_data_points(values, n):
     result = []

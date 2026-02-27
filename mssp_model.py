@@ -1,7 +1,7 @@
-from gurobipy import GRB, Model, quicksum
 import os
 import math
 from fetch_data import fetch_data
+from gurobipy import GRB, Model, quicksum
 from scenario_tree import generate_scenario_tree
 
 class ScenarioNodeMSSP:
@@ -233,7 +233,7 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 if __name__ == '__main__':
     numStages = 3
     numSubperiods = 5
-    numSubterms = 1092
+    numSubterms = 4368
     numMultipliers = 2
     tolerance = 0.01
 
@@ -244,5 +244,5 @@ if __name__ == '__main__':
     scenario_tree_verify, initial_tech_verify = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
     
     MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], 
-                          initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
-                          input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')
+                     initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
+                     input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')

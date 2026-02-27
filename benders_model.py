@@ -1,6 +1,6 @@
-from gurobipy import GRB, Model, quicksum, Env
-import math
 import os
+import math
+from gurobipy import GRB, Model, quicksum, Env
 
 class ScenarioNode:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):
@@ -266,7 +266,7 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     model.setParam('FeasibilityTol', 1e-8)
 
     if not continuous_flag:
-        #model.setParam('MIPFocus', 3)
+        model.setParam('MIPFocus', 3)
         model.setParam('TimeLimit', 86400)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')

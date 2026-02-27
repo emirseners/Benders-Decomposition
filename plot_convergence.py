@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
 import os
+import matplotlib.pyplot as plt
 
 def parse_benders_log(log_file_path):
     upper_bounds = []

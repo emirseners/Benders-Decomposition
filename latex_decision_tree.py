@@ -1,8 +1,6 @@
 from __future__ import annotations
-
-import re
 from collections import defaultdict
-
+import re
 
 def read_and_aggregate_capacities(sol_file_path):
 

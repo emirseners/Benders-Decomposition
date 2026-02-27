@@ -2,9 +2,9 @@ import os
 import time
 import subprocess, sys
 from fetch_data import fetch_data
-from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
 from benders import CampusApplication
 from obtain_incumbent import obtain_incumbent
+from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
 
 if __name__ == '__main__':
     execution_start_time = time.time()
