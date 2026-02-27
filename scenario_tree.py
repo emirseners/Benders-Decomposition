@@ -12,7 +12,7 @@ class ScenarioTree:
             from mssp_model import ScenarioNodeMSSP
             NodeClass = ScenarioNodeMSSP
         elif dispatch_flag:
-            from simulation_lp import ScenarioNodeDispatch
+            from robust_simulation import ScenarioNodeDispatch
             NodeClass = ScenarioNodeDispatch
         elif benders_without_feasibility_flag:
             from benders_model_feas import ScenarioNode
