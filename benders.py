@@ -166,22 +166,22 @@ def minimum_sum_contiguous_subarray(array):
     
     return min_so_far, best_start + 1, best_end + 1
 
-def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
+def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
     cut_expressions = {}
 
     if initial_iteration:
         for sp_id in scenario_paths.keys():
-            sp_seperation_data = seperation_data[sp_id]
-            electricity_demand = np.array(sp_seperation_data['electricity_demand'])
-            heat_demand = np.array(sp_seperation_data['heat_demand'])
+            sp_separation_data = separation_data[sp_id]
+            electricity_demand = np.array(sp_separation_data['electricity_demand'])
+            heat_demand = np.array(sp_separation_data['heat_demand'])
 
             electricity_demand_sum = sum(electricity_demand[q-1] for q in range(1, numSubterms + 1))
             scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
 
             heat_demand_sum = sum(heat_demand[q-1] for q in range(1, numSubterms + 1))
             scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (numSubterms - 1 + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (numSubterms - 1 + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
 
         return cut_expressions
 
@@ -189,28 +189,28 @@ def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibi
         if sub_feas:
             continue
 
-        sp_seperation_data = seperation_data[sp_id]
-        electricity_demand = np.array(sp_seperation_data['electricity_demand'])
-        heat_demand = np.array(sp_seperation_data['heat_demand'])
+        sp_separation_data = separation_data[sp_id]
+        electricity_demand = np.array(sp_separation_data['electricity_demand'])
+        heat_demand = np.array(sp_separation_data['heat_demand'])
         
-        elec_gen_vars = list(sp_seperation_data["electricitygenerationtechNodeList"].keys())
-        elec_gen_coefs = np.array([sp_seperation_data["electricitygenerationtechNodeList"][v] for v in elec_gen_vars]).T
+        elec_gen_vars = list(sp_separation_data["electricitygenerationtechNodeList"].keys())
+        elec_gen_coefs = np.array([sp_separation_data["electricitygenerationtechNodeList"][v] for v in elec_gen_vars]).T
         
-        heat_gen_vars = list(sp_seperation_data["heatgenerationtechNodeList"].keys())
-        heat_gen_coefs = np.array([sp_seperation_data["heatgenerationtechNodeList"][v] for v in heat_gen_vars]).T
+        heat_gen_vars = list(sp_separation_data["heatgenerationtechNodeList"].keys())
+        heat_gen_coefs = np.array([sp_separation_data["heatgenerationtechNodeList"][v] for v in heat_gen_vars]).T
         
         if callback_flag:
             elec_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in elec_gen_vars])
             heat_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in heat_gen_vars])
-            electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
-            heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
-            heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
+            electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
+            heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
+            heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
         else:
             elec_gen_vals = np.array([master_var_cache[v].X for v in elec_gen_vars])
             heat_gen_vals = np.array([master_var_cache[v].X for v in heat_gen_vars])
-            electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items())
-            heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items())
-            heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items())
+            electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
+            heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
+            heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
 
         electricity_contiguous_array = elec_gen_coefs @ elec_gen_vals - electricity_demand
         heat_contiguous_array = (heat_gen_coefs @ heat_gen_vals) + heat_transfer_per_subperiod - heat_demand
@@ -221,12 +221,12 @@ def add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibi
         if min_sum_e + electricity_storage_const < 0:
             electricity_demand_sum = sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
             scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
 
         if min_sum_h + heat_storage_const < 0:
             heat_demand_sum = sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
             scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_seperation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_seperation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
 
     return cut_expressions
 
@@ -416,7 +416,7 @@ def benders_callback(model, where):
         valid_inequality_derivation_time = 0
         if not all_feasible and call_back_data['valid_inequalities_flag']:
             valid_inequality_start_time = time.time()
-            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['seperation_data'], call_back_data['master_var_cache'], subproblem_feasibility=subproblem_feasibility, callback_flag=True, master_model=model)
+            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['separation_data'], call_back_data['master_var_cache'], subproblem_feasibility=subproblem_feasibility, callback_flag=True, master_model=model)
             for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                 model.cbLazy(cut_expression >= 0)
             valid_inequality_derivation_time = time.time() - valid_inequality_start_time
@@ -479,7 +479,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         )
         executors[scenario_path_id] = executor
 
-    master_model, seperation_data = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance)
+    master_model, separation_data = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance)
 
     cuts_file = open(os.path.join(results_directory, 'GeneratedCuts.txt'), 'w') if write_cuts_flag else None
 
@@ -488,7 +488,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
     master_var_cache = {var.varName: var for var in master_model.getVars()}
 
     if valid_inequalities_flag:
-        valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, initial_iteration=True, numSubterms=numSubterms, scenario_paths=scenario_paths)
+        valid_ineq_cut_expressions = add_valid_inequalities(separation_data, master_var_cache, initial_iteration=True, numSubterms=numSubterms, scenario_paths=scenario_paths)
         for cut_name, cut_expression in valid_ineq_cut_expressions.items():
             master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{0}')
 
@@ -550,7 +550,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             'master_var_cache': master_var_cache,
             'continuous_flag': continuous_flag,
             'valid_inequalities_flag': valid_inequalities_flag,
-            'seperation_data': seperation_data,
+            'separation_data': separation_data,
             'tolerance': tolerance,
             'results_directory': results_directory,
             'total_iteration_time': total_iteration_time,
@@ -652,7 +652,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             valid_ineq_cut_expressions = None
             if not all_feasible and valid_inequalities_flag:
                 valid_inequality_start_time = time.time()
-                valid_ineq_cut_expressions = add_valid_inequalities(seperation_data, master_var_cache, subproblem_feasibility=subproblem_feasibility)
+                valid_ineq_cut_expressions = add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibility=subproblem_feasibility)
                 for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                     master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{iteration}')
                 valid_inequality_derivation_time = time.time() - valid_inequality_start_time
