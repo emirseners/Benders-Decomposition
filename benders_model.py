@@ -1,5 +1,6 @@
 import os
 import math
+import numpy as np
 from gurobipy import GRB, Model, quicksum, Env
 
 class ScenarioNode:
@@ -170,20 +171,14 @@ class ScenarioNode:
 
     def ComputeSeparationData(self):
         t_ = self.stageSubperiods[-1]
-        separation_data = {
-                "electricitystoragetechNodeList": {},
-                "electricitygenerationtechNodeList": {},
-                "heatstoragetechNodeList": {},
-                "heatgenerationtechNodeList": {},
-                "heattransfertechNodeList": {},
-        }
+        separation_data = {"electricitystoragetechNodeList": {}, "heatstoragetechNodeList": {}, "heattransfertechNodeList": {}}
 
         for i, tech in enumerate(self.electricitystoragetechNodeList):
             for v in range(tech.NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.electricitystoragetechNodeList[i].lifetime[v]:
-                        coeff = self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0] * ancestor.electricitystoragetechNodeList[i].electricity_storage_capacity[v] * (1 - (ancestor.electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        coeff = self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0] * self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * ancestor.electricitystoragetechNodeList[i].electricity_storage_capacity[v] * (1 - (ancestor.electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
                         separation_data["electricitystoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
 
         for i, tech in enumerate(self.heatstoragetechNodeList):
@@ -191,30 +186,30 @@ class ScenarioNode:
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.heatstoragetechNodeList[i].lifetime[v]:
-                        coeff = self.heatstoragetechNodeList[0].storage_discharging_efficiency[0] * ancestor.heatstoragetechNodeList[i].heat_storage_capacity[v] * (1 - (ancestor.heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        coeff = self.heatstoragetechNodeList[0].storage_discharging_efficiency[0] * self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * ancestor.heatstoragetechNodeList[i].heat_storage_capacity[v] * (1 - (ancestor.heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
                         separation_data["heatstoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
 
+        elec_gen_var_names = []
+        elec_gen_coef_lists = []
         for i, tech in enumerate(self.electricitygenerationtechNodeList):
             for v in range(self.electricitygenerationtechNodeList[i].NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.electricitygenerationtechNodeList[i].lifetime[v]:
-                        coeff_list = []
-                        for p in range(len(ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v])):
-                            coeff = ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v][p] * (1 - (ancestor.electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
-                            coeff_list.append(coeff)
-                        separation_data["electricitygenerationtechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff_list
+                        coeff_array = np.array(ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v]) * (1.0 - (ancestor.electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        elec_gen_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
+                        elec_gen_coef_lists.append(coeff_array)
 
+        heat_gen_var_names = []
+        heat_gen_coef_lists = []
         for i, tech in enumerate(self.heatgenerationtechNodeList):
             for v in range(self.heatgenerationtechNodeList[i].NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.heatgenerationtechNodeList[i].lifetime[v]:
-                        coeff_list = []
-                        for p in range(len(ancestor.heatgenerationtechNodeList[i].periodic_heat[v])):
-                            coeff = ancestor.heatgenerationtechNodeList[i].periodic_heat[v][p] * (1 - (ancestor.heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
-                            coeff_list.append(coeff)
-                        separation_data["heatgenerationtechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff_list
+                        coeff_array = np.array(ancestor.heatgenerationtechNodeList[i].periodic_heat[v]) * (1.0 - (ancestor.heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        heat_gen_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
+                        heat_gen_coef_lists.append(coeff_array)
 
         for i, tech in enumerate(self.heattransfertechNodeList):
             for v in range(self.heattransfertechNodeList[i].NumVersion):
@@ -223,6 +218,11 @@ class ScenarioNode:
                     if t <= t_ < t + ancestor.heattransfertechNodeList[i].lifetime[v]:
                         coeff = ancestor.heattransfertechNodeList[i].heat_transfer_capacity[v] * (1 - (ancestor.heattransfertechNodeList[i].degradation_rate[v] * (t_ - t)))
                         separation_data["heattransfertechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
+
+        separation_data['elec_gen_coef_matrix'] = np.column_stack(elec_gen_coef_lists)
+        separation_data['elec_gen_var_names'] = elec_gen_var_names
+        separation_data['heat_gen_coef_matrix'] = np.column_stack(heat_gen_coef_lists)
+        separation_data['heat_gen_var_names'] = heat_gen_var_names
 
         return separation_data
 
@@ -247,8 +247,8 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
             if len(node.children) == 0:
                 path_id = next(path_id for path_id, scenario_nodes in scenario_paths.items() if node.id in scenario_nodes)
                 separation_data[path_id] = node.ComputeSeparationData()
-                separation_data[path_id]['electricity_demand'] = electricity_demand[-1]
-                separation_data[path_id]['heat_demand'] = heat_demand[-1]
+                separation_data[path_id]['electricity_demand'] = np.array(electricity_demand[-1], dtype=np.float64)
+                separation_data[path_id]['heat_demand'] = np.array(heat_demand[-1], dtype=np.float64)
 
     if multi_cut_flag:
         theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
@@ -263,7 +263,7 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     model.setParam('Threads', threads)
     model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
-    model.setParam('FeasibilityTol', 1e-8)
+    #model.setParam('FeasibilityTol', 1e-8)
 
     if not continuous_flag:
         model.setParam('MIPFocus', 3)

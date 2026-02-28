@@ -1,6 +1,7 @@
 import os
 import copy
 import time
+import numba
 import threading
 import numpy as np
 import concurrent.futures
@@ -142,6 +143,7 @@ def add_multiple_cuts_2(subproblem_constants, subproblem_dv_coefficients, subpro
 
     return cut_exprs
 
+@numba.njit(cache=True)
 def minimum_sum_contiguous_subarray(array):
     n = len(array)
     
@@ -166,22 +168,61 @@ def minimum_sum_contiguous_subarray(array):
     
     return min_so_far, best_start + 1, best_end + 1
 
+def _build_electricity_cut(sp_id, sp_separation_data, elec_gen_coef_matrix, elec_gen_var_names, electricity_demand, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e, master_var_cache):
+    if min_sum_e + electricity_storage_const >= 0:
+        return None, None
+    
+    electricity_demand_sum = np.sum(electricity_demand[q_lb_e - 1 : q_ub_e])
+    scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
+    inv_scale = 1.0 / scale_factor
+    
+    summed_coefs = np.sum(elec_gen_coef_matrix[q_lb_e - 1 : q_ub_e], axis=0)
+    
+    cut_name = f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'
+    cut_expr = quicksum((summed_coefs[j] * inv_scale) * master_var_cache[elec_gen_var_names[j]] for j in range(len(elec_gen_var_names))) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum * inv_scale)
+    
+    return cut_name, cut_expr
+
+def _build_heat_cut(sp_id, sp_separation_data, heat_gen_coef_matrix, heat_gen_var_names, heat_demand, heat_storage_const, q_lb_h, q_ub_h, min_sum_h, master_var_cache):
+    if min_sum_h + heat_storage_const >= 0:
+        return None, None
+    
+    heat_demand_sum = np.sum(heat_demand[q_lb_h - 1 : q_ub_h])
+    scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
+    inv_scale = 1.0 / scale_factor
+    num_subterms = q_ub_h - q_lb_h + 1
+    
+    summed_coefs = np.sum(heat_gen_coef_matrix[q_lb_h - 1 : q_ub_h], axis=0)
+    
+    cut_name = f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'
+    cut_expr = quicksum((summed_coefs[j] * inv_scale) * master_var_cache[heat_gen_var_names[j]] for j in range(len(heat_gen_var_names))) + quicksum((coeff * inv_scale) * num_subterms * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum * inv_scale)
+    
+    return cut_name, cut_expr
+
 def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
     cut_expressions = {}
 
     if initial_iteration:
         for sp_id in scenario_paths.keys():
             sp_separation_data = separation_data[sp_id]
-            electricity_demand = np.array(sp_separation_data['electricity_demand'])
-            heat_demand = np.array(sp_separation_data['heat_demand'])
+            electricity_demand = sp_separation_data['electricity_demand']
+            heat_demand = sp_separation_data['heat_demand']
+            elec_gen_coef_matrix = sp_separation_data['elec_gen_coef_matrix']
+            elec_gen_var_names = sp_separation_data['elec_gen_var_names']
+            heat_gen_coef_matrix = sp_separation_data['heat_gen_coef_matrix']
+            heat_gen_var_names = sp_separation_data['heat_gen_var_names']
 
-            electricity_demand_sum = sum(electricity_demand[q-1] for q in range(1, numSubterms + 1))
+            electricity_demand_sum = np.sum(electricity_demand[:numSubterms])
             scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+            inv_scale = 1.0 / scale_factor
+            elec_summed_coefs = np.sum(elec_gen_coef_matrix[:numSubterms], axis=0)
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((elec_summed_coefs[j] * inv_scale) * master_var_cache[elec_gen_var_names[j]] for j in range(len(elec_gen_var_names))) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum * inv_scale)
 
-            heat_demand_sum = sum(heat_demand[q-1] for q in range(1, numSubterms + 1))
+            heat_demand_sum = np.sum(heat_demand[:numSubterms])
             scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((sum(coeff_array[q-1] for q in range(1, numSubterms + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (numSubterms - 1 + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
+            inv_scale = 1.0 / scale_factor
+            heat_summed_coefs = np.sum(heat_gen_coef_matrix[:numSubterms], axis=0)
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((heat_summed_coefs[j] * inv_scale) * master_var_cache[heat_gen_var_names[j]] for j in range(len(heat_gen_var_names))) + quicksum((coeff * inv_scale) * numSubterms * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum * inv_scale)
 
         return cut_expressions
 
@@ -190,43 +231,39 @@ def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibi
             continue
 
         sp_separation_data = separation_data[sp_id]
-        electricity_demand = np.array(sp_separation_data['electricity_demand'])
-        heat_demand = np.array(sp_separation_data['heat_demand'])
-        
-        elec_gen_vars = list(sp_separation_data["electricitygenerationtechNodeList"].keys())
-        elec_gen_coefs = np.array([sp_separation_data["electricitygenerationtechNodeList"][v] for v in elec_gen_vars]).T
-        
-        heat_gen_vars = list(sp_separation_data["heatgenerationtechNodeList"].keys())
-        heat_gen_coefs = np.array([sp_separation_data["heatgenerationtechNodeList"][v] for v in heat_gen_vars]).T
-        
+        electricity_demand = sp_separation_data['electricity_demand']
+        heat_demand = sp_separation_data['heat_demand']
+        elec_gen_coef_matrix = sp_separation_data['elec_gen_coef_matrix']
+        elec_gen_var_names = sp_separation_data['elec_gen_var_names']
+        heat_gen_coef_matrix = sp_separation_data['heat_gen_coef_matrix']
+        heat_gen_var_names = sp_separation_data['heat_gen_var_names']
+
         if callback_flag:
-            elec_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in elec_gen_vars])
-            heat_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in heat_gen_vars])
+            elec_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in elec_gen_var_names])
+            heat_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in heat_gen_var_names])
             electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
             heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
             heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
         else:
-            elec_gen_vals = np.array([master_var_cache[v].X for v in elec_gen_vars])
-            heat_gen_vals = np.array([master_var_cache[v].X for v in heat_gen_vars])
+            elec_gen_vals = np.array([master_var_cache[v].X for v in elec_gen_var_names])
+            heat_gen_vals = np.array([master_var_cache[v].X for v in heat_gen_var_names])
             electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
             heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
             heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
 
-        electricity_contiguous_array = elec_gen_coefs @ elec_gen_vals - electricity_demand
-        heat_contiguous_array = (heat_gen_coefs @ heat_gen_vals) + heat_transfer_per_subperiod - heat_demand
+        electricity_contiguous_array = elec_gen_coef_matrix @ elec_gen_vals - electricity_demand
+        heat_contiguous_array = (heat_gen_coef_matrix @ heat_gen_vals) + heat_transfer_per_subperiod - heat_demand
 
-        min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(electricity_contiguous_array.tolist())
-        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(heat_contiguous_array.tolist())
+        min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(np.ascontiguousarray(electricity_contiguous_array))
+        min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(np.ascontiguousarray(heat_contiguous_array))
 
-        if min_sum_e + electricity_storage_const < 0:
-            electricity_demand_sum = sum(electricity_demand[q-1] for q in range(q_lb_e, q_ub_e + 1))
-            scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_e, q_ub_e + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["electricitygenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum/scale_factor)
+        elec_cut_name, elec_cut_expr = _build_electricity_cut(sp_id, sp_separation_data, elec_gen_coef_matrix, elec_gen_var_names, electricity_demand, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e, master_var_cache)
+        heat_cut_name, heat_cut_expr = _build_heat_cut(sp_id, sp_separation_data, heat_gen_coef_matrix, heat_gen_var_names, heat_demand, heat_storage_const, q_lb_h, q_ub_h, min_sum_h, master_var_cache)
 
-        if min_sum_h + heat_storage_const < 0:
-            heat_demand_sum = sum(heat_demand[q-1] for q in range(q_lb_h, q_ub_h + 1))
-            scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'] = quicksum((sum(coeff_array[q-1] for q in range(q_lb_h, q_ub_h + 1))/scale_factor) * master_var_cache[dv_name] for dv_name, coeff_array in sp_separation_data["heatgenerationtechNodeList"].items()) + quicksum((coeff/scale_factor) * (q_ub_h - q_lb_h + 1) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff/scale_factor) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum/scale_factor)
+        if elec_cut_name is not None:
+            cut_expressions[elec_cut_name] = elec_cut_expr
+        if heat_cut_name is not None:
+            cut_expressions[heat_cut_name] = heat_cut_expr
 
     return cut_expressions
 
