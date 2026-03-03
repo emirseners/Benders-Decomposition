@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     numStages = 3
     numSubperiods = 5
-    numSubterms = 4368
+    numSubterms = 1092
     numMultipliers = 2
     tolerance = 0.01
 

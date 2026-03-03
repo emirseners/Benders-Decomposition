@@ -230,13 +230,7 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 
     return model
 
-if __name__ == '__main__':
-    numStages = 3
-    numSubperiods = 5
-    numSubterms = 4368
-    numMultipliers = 2
-    tolerance = 0.01
-
+def run_mssp_verification(numStages=3, numSubperiods=5, numSubterms=4368, numMultipliers=2, tolerance=0.01):
     input_data = fetch_data(numStages, numSubperiods, numSubterms)
 
     results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
@@ -246,3 +240,6 @@ if __name__ == '__main__':
     MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], 
                      initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
                      input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')
+
+if __name__ == '__main__':
+    run_mssp_verification()

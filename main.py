@@ -1,8 +1,8 @@
 import os
 import time
-import subprocess, sys
 from fetch_data import fetch_data
 from benders import CampusApplication
+from mssp_model import run_mssp_verification
 from obtain_incumbent import obtain_incumbent
 from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
 
@@ -47,4 +47,4 @@ if __name__ == '__main__':
     log_file.write('\n'.join(summary_lines) + '\n')
     log_file.close()
 
-    subprocess.run([sys.executable, 'mssp_model.py'], check=True)
+    run_mssp_verification(numStages, numSubperiods, numSubterms, numMultipliers, tolerance)
