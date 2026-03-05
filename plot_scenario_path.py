@@ -139,22 +139,21 @@ def compute_generation_data(numStages, numSubperiods, numSubterms, numMultiplier
 	electricity_demand = input_data['electricity_demand'][1:]
 	heat_demand = input_data['heat_demand'][1:]
 
-	return operational_data, scenario_paths, electricity_demand, heat_demand
+	return operational_data, scenario_paths, electricity_demand, heat_demand, input_data["results_directory"]
 
 def main():
 	numStages = 3
 	numSubperiods = 5
-	numSubterms = 4368
+	numSubterms = 1092
 	numMultipliers = 2
 
-	operational_data, scenario_paths, electricity_demand, heat_demand = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers)
+	operational_data, scenario_paths, electricity_demand, heat_demand, results_dir = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers)
 	first_sp_id = min(scenario_paths.keys())
 	sp_data = operational_data[first_sp_id]
 	numTotalPeriods = numStages * numSubperiods
 
-	nodes = [n for n in scenario_paths[1] if n != 0]
+	nodes = [n for n in scenario_paths[first_sp_id] if n != 0]
 
-	results_dir = os.path.join(os.path.dirname(__file__), f"Results_{numStages}_{numSubperiods}_{numSubterms}")
 	df = load_op_variables_df(results_dir)
 
 	exclude_vars = {"electricityused", "heatused"}
@@ -164,35 +163,32 @@ def main():
 	gen_rows = []
 	for t in range(numTotalPeriods):
 		year = t + 1
+		node_for_year = nodes[t // numSubperiods]
 		for s in range(numSubterms):
 			e_val = sp_data["Electricity Generation"][t][s]
 			h_val = sp_data["Heat Generation"][t][s]
 			ed_val = electricity_demand[t][s]
 			hd_val = heat_demand[t][s]
-			gen_rows.append({"var": "electricitygeneration", "node": 0, "year": year, "subterm": s + 1, "value": e_val})
-			gen_rows.append({"var": "heatgeneration", "node": 0, "year": year, "subterm": s + 1, "value": h_val})
-			gen_rows.append({"var": "electricitydemand", "node": 0, "year": year, "subterm": s + 1, "value": ed_val})
-			gen_rows.append({"var": "heatdemand", "node": 0, "year": year, "subterm": s + 1, "value": hd_val})
+			gen_rows.append({"var": "electricitygeneration", "node": node_for_year, "year": year, "subterm": s + 1, "value": e_val})
+			gen_rows.append({"var": "heatgeneration", "node": node_for_year, "year": year, "subterm": s + 1, "value": h_val})
+			gen_rows.append({"var": "electricitydemand", "node": node_for_year, "year": year, "subterm": s + 1, "value": ed_val})
+			gen_rows.append({"var": "heatdemand", "node": node_for_year, "year": year, "subterm": s + 1, "value": hd_val})
 
 	df_gen = pd.DataFrame(gen_rows)
 	df_filtered = pd.concat([df_filtered, df_gen], ignore_index=True)
 
 	df_filtered["x_index"] = (df_filtered["year"] - 1) * numSubterms + df_filtered["subterm"]
-	df_filtered["series"] = df_filtered.apply(lambda r: f"{r['var']}-n{r['node']}-y{r['year']}", axis=1)
 
 	fig = px.line(
 		data_frame=df_filtered,
 		x="x_index",
 		y="value",
 		color="var",
-		line_group="series",
-		hover_data=["node", "year", "series"],
+		hover_data=["node", "year"],
 		title=f"Nodes: {nodes}"
 	)
-	fig.update_layout(xaxis_title="subterm (cumulative by year)", yaxis_title="value")
-
+	fig.update_layout(xaxis_title="subterm", yaxis_title="value")
 	fig.show()
-
 
 if __name__ == "__main__":
 	main()

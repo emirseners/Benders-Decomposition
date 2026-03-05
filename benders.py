@@ -394,7 +394,6 @@ def benders_callback(model, where):
         futures = {sp_id: call_back_data['executors'][sp_id].submit(solve_subproblem, nonanticipativity_lookup) for sp_id in call_back_data['scenario_paths'].keys()}
         subproblem_results = {sp_id: future.result() for sp_id, future in futures.items()}
         subproblem_execution_time = time.time() - subproblem_start_time
-        call_back_data['total_subproblem_time'] += subproblem_execution_time
 
         subproblem_objectives = {}
         subproblem_constants = {}
@@ -415,11 +414,6 @@ def benders_callback(model, where):
                     status_file.write(f"Iteration {call_back_data['iteration']}: Subproblem {sp_id} status: {status}\n")
         
         all_feasible = all(subproblem_feasibility.values())
-
-        if all_feasible:
-            call_back_data['optimality_cut_iterations'] += 1
-        else:
-            call_back_data['feasibility_cut_iterations'] += 1
         
         if call_back_data['multi_cut_flag']:
             if 'theta_vars' not in call_back_data:
@@ -457,10 +451,19 @@ def benders_callback(model, where):
             for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                 model.cbLazy(cut_expression >= 0)
             valid_inequality_derivation_time = time.time() - valid_inequality_start_time
-            call_back_data['total_valid_inequality_time'] += valid_inequality_derivation_time
-            call_back_data['valid_inequalities_added'] += len(valid_ineq_cut_expressions)
 
         with call_back_data['lock']:
+            call_back_data['total_subproblem_time'] += subproblem_execution_time
+
+            if all_feasible:
+                call_back_data['optimality_cut_iterations'] += 1
+            else:
+                call_back_data['feasibility_cut_iterations'] += 1
+
+            if valid_inequality_derivation_time > 0:
+                call_back_data['total_valid_inequality_time'] += valid_inequality_derivation_time
+                call_back_data['valid_inequalities_added'] += len(valid_ineq_cut_expressions)
+
             if call_back_data['cuts_file']:
                 write_cuts(call_back_data['cuts_file'], call_back_data['iteration'], subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, call_back_data['scenario_path_probabilities'], call_back_data['multi_cut_flag'])
 

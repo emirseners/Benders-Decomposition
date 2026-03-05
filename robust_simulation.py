@@ -1,9 +1,177 @@
 import os
+import re
 import csv
+import copy
 import time
+import numpy as np
+import concurrent.futures
 from fetch_data import fetch_data
+from collections import defaultdict
 from gurobipy import GRB, Model, quicksum
 from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
+
+_worker_state = None
+
+def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length):
+    global _worker_state
+
+    _worker_state = {
+        'scenario_tree': scenario_tree_copy,
+        'stage_node_ranges': stage_node_ranges,
+        'input_data': input_data,
+        'numStages': numStages,
+        'numSubperiods': numSubperiods,
+        'numSubterms': numSubterms,
+        'total_periods': numStages * numSubperiods,
+        'subterm_interval_length': subterm_interval_length,
+        'perturbed_subterm_interval_length': perturbed_subterm_interval_length,
+        'nominal_e_demand': input_data['electricity_demand'],
+        'nominal_h_demand': input_data['heat_demand'],
+        'e_demand_std': input_data['electricity_demand_std'],
+        'h_demand_std': input_data['heat_demand_std'],
+        'random_data': ['electricity_demand', 'heat_demand', 'solar', 'wind', 'parabolic_trough', 'heat_pump'],
+    }
+
+def run_single_replication(args):
+    replication_index, seed = args
+    ws = _worker_state
+
+    rng = np.random.default_rng(seed)
+
+    scenario_tree = ws['scenario_tree']
+    stage_node_ranges = ws['stage_node_ranges']
+    input_data = ws['input_data']
+    numStages = ws['numStages']
+    numSubperiods = ws['numSubperiods']
+    numSubterms = ws['numSubterms']
+    total_periods = ws['total_periods']
+    subterm_interval_length = ws['subterm_interval_length']
+    perturbed_subterm_interval_length = ws['perturbed_subterm_interval_length']
+    nominal_e_demand = ws['nominal_e_demand']
+    nominal_h_demand = ws['nominal_h_demand']
+    e_demand_std = ws['e_demand_std']
+    h_demand_std = ws['h_demand_std']
+    random_data_sources = ws['random_data']
+
+    replication_start_time = time.time()
+
+    random_number_stream = {}
+    for source in random_data_sources:
+        random_number_stream[source] = {0: np.zeros(numSubterms)}
+        for period in range(1, total_periods + 1):
+            random_number_stream[source][period] = rng.standard_normal(numSubterms)
+            #random_number_stream[source][period] = np.zeros(numSubterms)
+
+    perturbed_e_demand = [None]
+    perturbed_h_demand = [None]
+    for period in range(1, total_periods + 1):
+        perturbed_e_demand.append([max(0, nominal_e_demand[period][p] + random_number_stream['electricity_demand'][period][p] * e_demand_std[period][p]) for p in range(numSubterms)])
+        perturbed_h_demand.append([max(0, nominal_h_demand[period][p] + random_number_stream['heat_demand'][period][p] * h_demand_std[period][p]) for p in range(numSubterms)])
+
+    def get_perturbation_z(period, subterm_index):
+        return {
+            'solar': random_number_stream['solar'][period][subterm_index],
+            'wind': random_number_stream['wind'][period][subterm_index],
+            'parabolic_trough': random_number_stream['parabolic_trough'][period][subterm_index],
+            'heat_pump': random_number_stream['heat_pump'][period][subterm_index],
+        }
+
+    rows = []
+    prev_carry_values = {}
+
+    for stage_no in range(1, numStages + 1):
+        for solve_node_id in stage_node_ranges[stage_no]:
+            solve_node = scenario_tree.nodes[solve_node_id]
+
+            model = Model('Dispatch')
+            model.setParam('OutputFlag', 1)
+            model.setParam('Threads', 1)
+            model.setParam('LogToConsole', 0)
+            #model.setParam('LogFile', os.path.join(input_data['results_directory'], f'DispatchGurobiLog_rep{replication_index}.txt'))
+
+            solve_node.InitializeModel(model, subterm_interval_length)
+
+            first_period = (stage_no - 1) * numSubperiods + 1
+            last_period = stage_no * numSubperiods
+
+            for period in range(first_period, last_period + 1):
+                if period == first_period:
+                    if period > 1:
+                        prev_node_id = solve_node.FindAncestorFromDiff(period - 1, period).id
+                        if prev_node_id in prev_carry_values:
+                            solve_node.e_Carrying[0].lb = prev_carry_values[prev_node_id]['e']
+                            solve_node.e_Carrying[0].ub = prev_carry_values[prev_node_id]['e']
+                            solve_node.h_Carrying[0].lb = prev_carry_values[prev_node_id]['h']
+                            solve_node.h_Carrying[0].ub = prev_carry_values[prev_node_id]['h']
+
+                    initial_subterms = list(range(1, subterm_interval_length + 1))
+                    solve_node.InitializeConstraints(model, subterm_interval_length, period, initial_subterms, nominal_e_demand, nominal_h_demand, input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
+                    slot_mapped_periods = {s: period for s in range(1, subterm_interval_length+1)}
+
+                    for s in range(1, perturbed_subterm_interval_length + 1):
+                        p_z = get_perturbation_z(period, s - 1)
+                        solve_node.UpdateDemandData(model, s, period, s, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
+
+                else:
+                    solve_node.e_Carrying[0].lb = solve_node.e_Carrying[1].X
+                    solve_node.e_Carrying[0].ub = solve_node.e_Carrying[1].X
+                    solve_node.h_Carrying[0].lb = solve_node.h_Carrying[1].X
+                    solve_node.h_Carrying[0].ub = solve_node.h_Carrying[1].X
+
+                    for s in range(1, subterm_interval_length+1):
+                        solve_node.UpdateSubperiodData(model, s, period, input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
+                        if s <= perturbed_subterm_interval_length:
+                            p_z = get_perturbation_z(period, s - 1)
+                            solve_node.UpdateDemandData(model, s, period, s, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
+                        else:
+                            solve_node.UpdateDemandData(model, s, period, s, nominal_e_demand, nominal_h_demand)
+                    slot_mapped_periods = {s: period for s in range(1, subterm_interval_length+1)}
+
+                last_active_slot = subterm_interval_length
+
+                for subterm_no in range(1, numSubterms + 1):
+                    if subterm_no > 1:
+                        solve_node.e_Carrying[0].lb = solve_node.e_Carrying[1].X
+                        solve_node.e_Carrying[0].ub = solve_node.e_Carrying[1].X
+                        solve_node.h_Carrying[0].lb = solve_node.h_Carrying[1].X
+                        solve_node.h_Carrying[0].ub = solve_node.h_Carrying[1].X
+
+                        for s in range(1, subterm_interval_length+1):
+                            mapped_subterm_raw = subterm_no + s - 1
+                            mapped_period = solve_node._get_mapped_period(period, mapped_subterm_raw)
+                            mapped_subterm = solve_node._get_mapped_subterm(mapped_subterm_raw)
+
+                            mapped_stage = ((mapped_period - 1) // numSubperiods) + 1
+                            if mapped_period > total_periods or (mapped_period > period and mapped_stage != stage_no):
+                                solve_node.DeactivateSlot(model, s)
+                                if s == last_active_slot:
+                                    last_active_slot -= 1
+                            else:
+                                if mapped_period != slot_mapped_periods[s]:
+                                    solve_node.UpdateSubperiodData(model, s, mapped_period, input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
+                                    slot_mapped_periods[s] = mapped_period
+
+                                if s <= perturbed_subterm_interval_length:
+                                    p_z = get_perturbation_z(mapped_period, mapped_subterm - 1)
+                                    solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
+                                else:
+                                    solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, nominal_e_demand, nominal_h_demand)
+
+                    if solve_node.e_Carrying[last_active_slot].Obj != -1e-4:
+                        solve_node.e_Carrying[last_active_slot].Obj = -1e-4
+                        solve_node.h_Carrying[last_active_slot].Obj = -1e-4
+
+                    model.update()
+                    model.optimize()
+
+                    rows.append((replication_index, solve_node_id, period, subterm_no, solve_node.e_Purchase[1].X, solve_node.h_Purchase[1].X))
+
+                prev_carry_values[solve_node_id] = {'e': solve_node.e_Carrying[1].X, 'h': solve_node.h_Carrying[1].X}
+
+            del model
+
+    elapsed = time.time() - replication_start_time
+    return replication_index, rows, elapsed
 
 class ScenarioNodeDispatch:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):
@@ -53,15 +221,84 @@ class ScenarioNodeDispatch:
             ancestor = ancestor.parent
         return ancestor
 
-    def AddInvestmentVariables(self, carry_nodes, period, subterm, model):
-        continuous_tech_nodes = [x for x in self.techNodeList if x not in self.electricitygenerationtechNodeList]
-        self.v_Plus = {}
-        self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in continuous_tech_nodes for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.CONTINUOUS, name="plus_"+str(self.id))) # purchase
-        self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in self.electricitygenerationtechNodeList for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.CONTINUOUS, name="plus_"+str(self.id))) # purchase
+    def GetPlusValue(self, tech_type, version, t, t_):
+        ancestor = self.FindAncestorFromDiff(t, t_)
+        key = f"plus_{ancestor.id}[{tech_type},{version},{t}]"
+        if key in self.tree.plus_vars:
+            return self.tree.plus_vars[key]
+        key_with_spaces = f"plus_{ancestor.id}[{tech_type}, {version}, {t}]"
+        return self.tree.plus_vars.get(key_with_spaces, 0.0)
+
+    def ComputeElectricityGeneration(self, t_, p, perturbation_z=None):
+        total = 0.0
+        for i, tech in enumerate(self.electricitygenerationtechNodeList):
+            for v in range(tech.NumVersion):
+                for t in range(0, t_+1):
+                    if t <= t_ < t + self.FindAncestorFromDiff(t, t_).electricitygenerationtechNodeList[i].lifetime[v]:
+                        ancestor_tech = self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i]
+                        gen = ancestor_tech.periodic_electricity[v][p]
+                        if perturbation_z is not None and ancestor_tech.periodic_electricity_std is not None:
+                            z = perturbation_z.get(tech.tree.type, 0)
+                            gen = max(0, gen + z * ancestor_tech.periodic_electricity_std[v][p])
+                        total += gen * (1 - (ancestor_tech.degradation_rate[v] * (t_ - t))) * self.GetPlusValue(tech.tree.type, v, t, t_)
+        return total
+
+    def ComputeHeatGeneration(self, t_, p, perturbation_z=None):
+        total = 0.0
+        for i, tech in enumerate(self.heatgenerationtechNodeList):
+            for v in range(tech.NumVersion):
+                for t in range(0, t_+1):
+                    if t <= t_ < t + self.FindAncestorFromDiff(t, t_).heatgenerationtechNodeList[i].lifetime[v]:
+                        ancestor_tech = self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i]
+                        gen = ancestor_tech.periodic_heat[v][p]
+                        if perturbation_z is not None and ancestor_tech.periodic_heat_std is not None:
+                            z = perturbation_z.get(tech.tree.type, 0)
+                            gen = max(0, gen + z * ancestor_tech.periodic_heat_std[v][p])
+                        total += gen * (1 - (ancestor_tech.degradation_rate[v] * (t_ - t))) * self.GetPlusValue(tech.tree.type, v, t, t_)
+        return total
+
+    def ComputeElectricityStorageCapacity(self, t_):
+        total = 0.0
+        for i, tech in enumerate(self.electricitystoragetechNodeList):
+            for v in range(tech.NumVersion):
+                for t in self.allSubperiods:
+                    if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].lifetime[v]:
+                        total += self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].electricity_storage_capacity[v] * (1 - (self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))) * self.GetPlusValue(tech.tree.type, v, t, t_)
+        return total
+
+    def ComputeHeatStorageCapacity(self, t_):
+        total = 0.0
+        for i, tech in enumerate(self.heatstoragetechNodeList):
+            for v in range(tech.NumVersion):
+                for t in self.allSubperiods:
+                    if t <= t_ < t + self.FindAncestorFromDiff(t, t_).heatstoragetechNodeList[i].lifetime[v]:
+                        total += self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].heat_storage_capacity[v] * (1 - (self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))) * self.GetPlusValue(tech.tree.type, v, t, t_)
+        return total
+
+    def ComputeHeatTransferCapacity(self, tech, v, t, t_):
+        cap = self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[next(idx for idx, tt in enumerate(self.heattransfertechNodeList) if tt is tech)].heat_transfer_capacity[v]
+        return cap * self.GetPlusValue(tech.tree.type, v, t, t_)
+
+    def GetValidHeatTransferKeys(self, t_):
+        keys = []
+        for i, tech in enumerate(self.heattransfertechNodeList):
+            for v in range(tech.NumVersion):
+                for t in self.allSubperiods:
+                    if t <= t_ < t + tech.lifetime[v]:
+                        keys.append((i, tech, v, t))
+        return keys
+
+    def GetAllHeatTransferKeys(self):
+        keys = []
+        for i, tech in enumerate(self.heattransfertechNodeList):
+            for v in range(tech.NumVersion):
+                for t in self.allSubperiods:
+                    keys.append((i, tech, v, t))
+        return keys
+
+    def InitializeModel(self, model, subterm_interval_length):
         self.e_Purchase = {}
         self.h_Purchase = {}
-        self.e_Carrying = {}
-        self.h_Carrying = {}
         self.e_Charging = {}
         self.h_Charging = {}
         self.e_Discharging = {}
@@ -69,123 +306,173 @@ class ScenarioNodeDispatch:
         self.e_Satisfied = {}
         self.h_Satisfied = {}
         self.y_Transfer = {}
-        if self.id in carry_nodes:
-            self.e_Carrying.update(model.addVars([(period - 1, subterm)], vtype=GRB.CONTINUOUS, lb=0, ub=0, name="electricitycarry_"+str(self.id))) # inventory carriage amount
-            self.h_Carrying.update(model.addVars([(period - 1, subterm)], vtype=GRB.CONTINUOUS, lb=0, ub=0, name="heatcarry_"+str(self.id))) # inventory carriage amount
+        self.e_Carrying = {}
+        self.h_Carrying = {}
+        self.e_Carrying[0] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, ub=0, name=f"electricitycarry_{self.id}_0")
+        self.h_Carrying[0] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, ub=0, name=f"heatcarry_{self.id}_0")
 
-    def AddVariables(self, model, subperiod, subterm):
-        self.e_Purchase.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="electricitypurchase_"+str(self.id))) # electricity purchase amount
-        self.h_Purchase.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="heatpurchase_"+str(self.id))) # heat purchase amount
-        self.e_Carrying.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="electricitycarry_"+str(self.id))) # inventory carriage amount
-        self.h_Carrying.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="heatcarry_"+str(self.id))) # inventory carriage amount
-        self.e_Charging.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="electricitycharge_"+str(self.id))) # inventory charge amount
-        self.h_Charging.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="heatcharge_"+str(self.id))) # inventory charge amount
-        self.e_Discharging.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="electricitydischarge_"+str(self.id))) # inventory discharge amount
-        self.h_Discharging.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="heatdischarge_"+str(self.id))) # inventory discharge amount
-        self.e_Satisfied.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="electricityused_"+str(self.id))) # electricity used from inventory and generation
-        self.h_Satisfied.update(model.addVars([(subperiod, subterm)], vtype=GRB.CONTINUOUS, lb=0, name="heatused_"+str(self.id))) # heat used from inventory and generation
-        self.y_Transfer.update(model.addVars([(subterm, tech.tree.type, v, t, subperiod) for tech in self.heattransfertechNodeList for v in range(tech.NumVersion) for t in self.allSubperiods if t <= subperiod < t + tech.lifetime[v]], vtype=GRB.CONTINUOUS, lb=0, name="transferredheat_"+str(self.id))) # electricity transfered to heat
+        for s in range(1, subterm_interval_length+1):
+            self.e_Purchase[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"electricitypurchase_{self.id}_{s}")
+            self.h_Purchase[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"heatpurchase_{self.id}_{s}")
+            self.e_Carrying[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"electricitycarry_{self.id}_{s}")
+            self.h_Carrying[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"heatcarry_{self.id}_{s}")
+            self.e_Charging[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"electricitycharge_{self.id}_{s}")
+            self.h_Charging[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"heatcharge_{self.id}_{s}")
+            self.e_Discharging[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"electricitydischarge_{self.id}_{s}")
+            self.h_Discharging[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"heatdischarge_{self.id}_{s}")
+            self.e_Satisfied[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"electricityused_{self.id}_{s}")
+            self.h_Satisfied[s] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"heatused_{self.id}_{s}")
 
-    def AddObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, subperiod, subterm):
-        t = subperiod
-        p = subterm
+        all_ht_keys = self.GetAllHeatTransferKeys()
+        for s in range(1, subterm_interval_length+1):
+            for (i, tech, v, t) in all_ht_keys:
+                self.y_Transfer[s, tech.tree.type, v, t] = model.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f"transferredheat_{self.id}_{s}_{tech.tree.type}_{v}_{t}")
+
+        model.update()
+
+    def InitializeConstraints(self, model, subterm_interval_length, subperiod, subterms_in_window, electricity_demand, heat_demand, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, perturbation_z=None):
+        all_ht_keys = self.GetAllHeatTransferKeys()
+
+        self.demand_e_gen_constrs = {}
+        self.demand_e_constrs = {}
+        self.demand_h_gen_constrs = {}
+        self.demand_h_constrs = {}
+        self.inv_bal_e_constrs = {}
+        self.inv_bal_h_constrs = {}
+        self.storage_cap_e_constrs = {}
+        self.storage_cap_h_constrs = {}
+        self.heat_transfer_cap_constrs = {}
+
+        for s in range(1, subterm_interval_length+1):
+            p = subterms_in_window[s-1] - 1
+
+            if self.id != 0:
+                self.e_Purchase[s].Obj = self.probability * electricity_purchasing_cost[subperiod] * (discount_factor ** subperiod)
+                self.h_Purchase[s].Obj = self.probability * heat_purchasing_cost[subperiod] * (discount_factor ** subperiod)
+
+            gen_e = self.ComputeElectricityGeneration(subperiod, p, perturbation_z=perturbation_z)
+            self.demand_e_gen_constrs[s] = model.addConstr(self.e_Purchase[s] - self.e_Charging[s] + self.e_Discharging[s] - self.e_Satisfied[s] >= -gen_e, name=f'N{self.id}_Electricity_Demand_Met_by_Generation_Inventory_{s}')
+
+            valid_ht_keys = self.GetValidHeatTransferKeys(subperiod)
+
+            cop_coeffs = {}
+            for (i, tech, v, t) in valid_ht_keys:
+                ancestor_tech = self.FindAncestorFromDiff(t, subperiod).heattransfertechNodeList[i]
+                cop = ancestor_tech.periodic_heat_transfer_cop[v][p]
+                if perturbation_z is not None and ancestor_tech.periodic_heat_transfer_cop_std is not None:
+                    z = perturbation_z.get(tech.tree.type, 0)
+                    cop = max(1e-6, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
+                cop_coeffs[(i, tech, v, t)] = cop
+
+            self.demand_e_constrs[s] = model.addConstr(quicksum((-1 / cop_coeffs[(i, tech, v, t)]) * self.y_Transfer[s, tech.tree.type, v, t] for (i, tech, v, t) in valid_ht_keys) + self.e_Satisfied[s] >= electricity_demand[subperiod][p], name=f'N{self.id}_Demand_Electricity_{s}')
+
+            gen_h = self.ComputeHeatGeneration(subperiod, p, perturbation_z=perturbation_z)
+            self.demand_h_gen_constrs[s] = model.addConstr(self.h_Purchase[s] - self.h_Charging[s] + self.h_Discharging[s] - self.h_Satisfied[s] >= -gen_h, name=f'N{self.id}_Heat_Demand_Met_by_Generation_Inventory_{s}')
+
+            self.demand_h_constrs[s] = model.addConstr(quicksum((1 - self.FindAncestorFromDiff(t, subperiod).heattransfertechNodeList[i].degradation_rate[v] * (subperiod - t)) * self.y_Transfer[s, tech.tree.type, v, t] for (i, tech, v, t) in valid_ht_keys) + self.h_Satisfied[s] >= heat_demand[subperiod][p], name=f'N{self.id}_Demand_Heat_{s}')
+
+            self.inv_bal_e_constrs[s] = model.addConstr(self.e_Carrying[s] - self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * self.e_Carrying[s-1] - self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[s] + (1/self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[s] == 0, name=f'N{self.id}_ElectricityInventoryBalance_{s}')
+            self.inv_bal_h_constrs[s] = model.addConstr(self.h_Carrying[s] - self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * self.h_Carrying[s-1] - self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[s] + (1/self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[s] == 0, name=f'N{self.id}_HeatInventoryBalance_{s}')
+
+            electricity_storage_capacity = self.ComputeElectricityStorageCapacity(subperiod)
+            heat_storage_capacity = self.ComputeHeatStorageCapacity(subperiod)
+            self.storage_cap_e_constrs[s] = model.addConstr(-self.e_Carrying[s] >= -electricity_storage_capacity, name=f'N{self.id}_ElectricityStorageCapacity_{s}')
+            self.storage_cap_h_constrs[s] = model.addConstr(-self.h_Carrying[s] >= -heat_storage_capacity, name=f'N{self.id}_HeatStorageCapacity_{s}')
+
+            for (i, tech, v, t) in all_ht_keys:
+                cap_val = self.ComputeHeatTransferCapacity(tech, v, t, subperiod) if t <= subperiod < t + tech.lifetime[v] else 0.0
+                self.heat_transfer_cap_constrs[s, tech.tree.type, v, t] = model.addConstr(-self.y_Transfer[s, tech.tree.type, v, t] >= -cap_val, name=f'N{self.id}_Heat_Transfer_Capacity_{s}_{tech.tree.type}_{v}_{t}')
+
+        model.update()
+
+    def DeactivateSlot(self, model, s):
+        all_vars = [self.e_Purchase[s], self.h_Purchase[s], self.e_Carrying[s], self.h_Carrying[s], self.e_Charging[s], self.h_Charging[s], self.e_Discharging[s], self.h_Discharging[s], self.e_Satisfied[s], self.h_Satisfied[s]]
+        for (i, tech, v, t) in self.GetAllHeatTransferKeys():
+            all_vars.append(self.y_Transfer[s, tech.tree.type, v, t])
+        for var in all_vars:
+            var.lb = 0
+            var.ub = 0
+        self.e_Purchase[s].Obj = 0
+        self.h_Purchase[s].Obj = 0
+        model.chgCoeff(self.inv_bal_e_constrs[s], self.e_Carrying[s-1], 0.0)
+        model.chgCoeff(self.inv_bal_h_constrs[s], self.h_Carrying[s-1], 0.0)
+        self.demand_e_constrs[s].RHS = 0
+        self.demand_h_constrs[s].RHS = 0
+        self.demand_e_gen_constrs[s].RHS = 0
+        self.demand_h_gen_constrs[s].RHS = 0
+
+    def UpdateSubperiodData(self, model, s, mapped_subperiod, electricity_purchasing_cost, heat_purchasing_cost, discount_factor):
         if self.id != 0:
-            self.e_Purchase[t,p].Obj = self.probability * electricity_purchasing_cost[t] * (discount_factor**(t))
-            self.h_Purchase[t,p].Obj = self.probability * heat_purchasing_cost[t] * (discount_factor**(t))
+            self.e_Purchase[s].Obj = self.probability * electricity_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
+            self.h_Purchase[s].Obj = self.probability * heat_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
 
-    def AddDemandConstraints(self, model, electricity_demand, heat_demand, subperiod, subterm):
-        t_ = subperiod
-        if self.id != 0:
-            p = subterm-1
-            periodic_demand = electricity_demand[t_][p]
-            model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].periodic_electricity[v][p]*(1 - (self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t] for i, tech in enumerate(self.electricitygenerationtechNodeList) for v in range(self.electricitygenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitygenerationtechNodeList[i].lifetime[v]) + self.e_Purchase[t_, p+1] - self.e_Charging[t_, p+1] + self.e_Discharging[t_, p+1] >= self.e_Satisfied[t_, p+1], name = f'N{self.id}_Electricity_Demand_Met_by_Generation_Inventory_{t_}_{p}')
-            model.addConstr(quicksum((-1/self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].periodic_heat_transfer_cop[v][p])*self.y_Transfer[p+1,tech.tree.type,v,t,t_] for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.e_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Electricity_{t_}_{p}')
-            periodic_demand = heat_demand[t_][p]
-            model.addConstr(quicksum(self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].periodic_heat[v][p]*(1 - (self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))*self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t] for i, tech in enumerate(self.heatgenerationtechNodeList) for v in range(self.heatgenerationtechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatgenerationtechNodeList[i].lifetime[v]) + self.h_Purchase[t_, p+1] - self.h_Charging[t_, p+1] + self.h_Discharging[t_, p+1] >= self.h_Satisfied[t_, p+1], name = f'N{self.id}_Heat_Demand_Met_by_Generation_Inventory_{t_}_{p}')
-            model.addConstr(quicksum((1 - (self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].degradation_rate[v]*(t_ - t)))*self.y_Transfer[p+1,tech.tree.type,v,t,t_] for i, tech in enumerate(self.heattransfertechNodeList) for v in range(self.heattransfertechNodeList[i].NumVersion) for t in range(0,t_+1) if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].lifetime[v]) + self.h_Satisfied[t_, p+1] >= periodic_demand, name = f'N{self.id}_Demand_Heat_{t_}_{p}')
+        all_ht_keys = self.GetAllHeatTransferKeys()
+        valid_ht_keys = set()
+        for (i, tech, v, t) in self.GetValidHeatTransferKeys(mapped_subperiod):
+            valid_ht_keys.add((i, tech.tree.type, v, t))
 
-    def AddInventoryBalanceConstraints(self, model, subperiod, subterm):
-        if self.id != 0:
-            t_ = subperiod
-            p = subterm
-            if p == 1:
-                model.addConstr(self.e_Carrying[t_,p] == self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * self.FindAncestorFromDiff(t_-1,t_).e_Carrying[t_-1, self.numSubterms] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                model.addConstr(self.h_Carrying[t_,p] == self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * self.FindAncestorFromDiff(t_-1,t_).h_Carrying[t_-1, self.numSubterms] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+        for (i, tech, v, t) in all_ht_keys:
+            if (i, tech.tree.type, v, t) in valid_ht_keys:
+                model.chgCoeff(self.demand_h_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], 1.0 - (self.FindAncestorFromDiff(t, mapped_subperiod).heattransfertechNodeList[i].degradation_rate[v] * (mapped_subperiod - t)))
             else:
-                model.addConstr(self.e_Carrying[t_,p] == self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * self.e_Carrying[t_,p-1] + self.electricitystoragetechNodeList[0].storage_charging_efficiency[0] * self.e_Charging[t_,p] - (1 / self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0]) * self.e_Discharging[t_,p], name = f'N{self.id}_ElectricityInventoryBalance_{t_}_{p}')
-                model.addConstr(self.h_Carrying[t_,p] == self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * self.h_Carrying[t_,p-1] + self.heatstoragetechNodeList[0].storage_charging_efficiency[0] * self.h_Charging[t_,p] - (1 / self.heatstoragetechNodeList[0].storage_discharging_efficiency[0]) * self.h_Discharging[t_,p], name = f'N{self.id}_HeatInventoryBalance_{t_}_{p}')
+                model.chgCoeff(self.demand_h_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], 0.0)
 
-    def AddStorageCapacityConstraints(self, model, subperiod, subterm):
-        t_ = subperiod
-        p = subterm
-        model.addConstr(self.e_Carrying[t_,p] <= quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].electricity_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.electricitystoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).electricitystoragetechNodeList[i].lifetime[v]), name = f'N{self.id}_ElectricityStorageCapacity_{t_}_{p}')
-        model.addConstr(self.h_Carrying[t_,p] <= quicksum(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].heat_storage_capacity[v]*(1 - (self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t))) for i, tech in enumerate(self.heatstoragetechNodeList) for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t + self.FindAncestorFromDiff(t,t_).heatstoragetechNodeList[i].lifetime[v]), name = f'N{self.id}_HeatStorageCapacity_{t_}_{p}')
+        self.storage_cap_e_constrs[s].RHS = -self.ComputeElectricityStorageCapacity(mapped_subperiod)
+        self.storage_cap_h_constrs[s].RHS = -self.ComputeHeatStorageCapacity(mapped_subperiod)
 
-    def AddHeatTransferCapacityConstraints(self, model, subperiod, subterm):
-        t_ = subperiod
-        p = subterm
-        for i, tech in enumerate(self.heattransfertechNodeList):
-            for v in range(tech.NumVersion):
-                for t in self.allSubperiods:
-                    if t <= t_ < t + tech.lifetime[v]:
-                        model.addConstr(self.y_Transfer[p,tech.tree.type,v,t,t_] <= self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].heat_transfer_capacity[v], name = f'N{self.id}_Heat_Transfer_Capacity_{tech.tree.type}_{v}_{t}_{t_}_{p}')
+        for (i, tech, v, t) in all_ht_keys:
+            cap_val = self.ComputeHeatTransferCapacity(tech, v, t, mapped_subperiod) if t <= mapped_subperiod < t + tech.lifetime[v] else 0.0
+            self.heat_transfer_cap_constrs[s, tech.tree.type, v, t].RHS = -cap_val
 
-def Dispatch(carry_nodes, period, numSubterms, scenarioTree, results_directory, results_sol_path, model_name):
-    model = Model(model_name)
-    model.setParam('OutputFlag', True)
+    def UpdateDemandData(self, model, s, mapped_subperiod, mapped_subterm, electricity_demand, heat_demand, perturbation_z=None):
+        p = mapped_subterm - 1
 
-    for node in scenarioTree.nodes:
-        node.AddInvestmentVariables(carry_nodes, period, numSubterms, model)
+        gen_e = self.ComputeElectricityGeneration(mapped_subperiod, p, perturbation_z=perturbation_z)
+        self.demand_e_gen_constrs[s].RHS = -gen_e
+        self.demand_e_constrs[s].RHS = electricity_demand[mapped_subperiod][p]
 
-    model.update()
+        gen_h = self.ComputeHeatGeneration(mapped_subperiod, p, perturbation_z=perturbation_z)
+        self.demand_h_gen_constrs[s].RHS = -gen_h
+        self.demand_h_constrs[s].RHS = heat_demand[mapped_subperiod][p]
 
-    if results_sol_path:
-        plus_values = {}
-        with open(results_sol_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                
-                parts = line.split()
-                if len(parts) >= 2:
-                    var_name = parts[0]
-                    if "plus" in var_name:
-                        var_value = float(parts[1])
-                        plus_values[var_name] = var_value
+        all_ht_keys = self.GetAllHeatTransferKeys()
+        valid_ht_keys = set()
+        for (i, tech, v, t) in self.GetValidHeatTransferKeys(mapped_subperiod):
+            valid_ht_keys.add((i, tech.tree.type, v, t))
 
-        vars_to_fix = []
-        values_to_fix = []
+        for (i, tech, v, t) in all_ht_keys:
+            if (i, tech.tree.type, v, t) in valid_ht_keys:
+                ancestor_tech = self.FindAncestorFromDiff(t, mapped_subperiod).heattransfertechNodeList[i]
+                cop = ancestor_tech.periodic_heat_transfer_cop[v][p]
+                if perturbation_z is not None and ancestor_tech.periodic_heat_transfer_cop_std is not None:
+                    z = perturbation_z.get(tech.tree.type, 0)
+                    cop = max(1e-6, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
+                model.chgCoeff(self.demand_e_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], (-1.0 / cop))
+            else:
+                model.chgCoeff(self.demand_e_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], 0.0)
 
-        for var in model.getVars():
-            if var.varName in plus_values:
-                vars_to_fix.append(var)
-                values_to_fix.append(plus_values[var.varName])
-        
-        model.setAttr('LB', vars_to_fix, values_to_fix)
-        model.setAttr('UB', vars_to_fix, values_to_fix)
+    def _get_mapped_period(self, base_period, base_subterm):
+        """Get the period that an actual subterm belongs to."""
+        if base_subterm <= self.numSubterms:
+            return base_period
+        else:
+            return base_period + 1
 
-    if not os.path.exists(results_directory):
-        os.makedirs(results_directory)
+    def _get_mapped_subterm(self, base_subterm):
+        """Get the subterm number within its period."""
+        if base_subterm <= self.numSubterms:
+            return base_subterm
+        else:
+            return base_subterm - self.numSubterms
 
-    model.setParam('Threads', 1)
-    model.setParam('LogToConsole', 0)
-    model.update()
+def parse(s: str):
+    m = re.match(r'([a-zA-Z]+)_(\d+)\[([^\]]+)\]', s)
 
-    return model
+    dv_name = m.group(1).strip()
+    node_id = int(m.group(2).strip())
+    indices = [p.strip() for p in m.group(3).split(',')]
 
-def Interval(subperiod, subterm, current_nodes, scenarioTree, model, electricity_demand, heat_demand, electricity_purchasing_cost, heat_purchasing_cost, discount_factor):
-
-    for node in scenarioTree.nodes:
-        if node.id in current_nodes:
-            node.AddVariables(model, subperiod, subterm)
-            node.AddObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, subperiod, subterm)
-            node.AddDemandConstraints(model, electricity_demand, heat_demand, subperiod, subterm)
-            node.AddInventoryBalanceConstraints(model, subperiod, subterm)
-            node.AddStorageCapacityConstraints(model, subperiod, subterm)
-            node.AddHeatTransferCapacityConstraints(model, subperiod, subterm)
-
-    return model
+    return dv_name, node_id, indices
 
 if __name__ == '__main__':
     execution_start_time = time.time()
@@ -197,99 +484,93 @@ if __name__ == '__main__':
     tolerance = 0.01
 
     subterm_interval_length = 12
+    perturbed_subterm_interval_length = 3
+    numReplications = 100
+
+    num_workers = min(os.cpu_count(), numReplications)
 
     input_data = fetch_data(numStages, numSubperiods, numSubterms)
 
     results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
 
-    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, dispatch_flag=True)
+    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, dispatch_flag=True, solar_periodic_generation_std=input_data['solar_periodic_generation_std'], wind_periodic_generation_std=input_data['wind_periodic_generation_std'], parabolic_trough_periodic_generation_std=input_data['parabolic_trough_periodic_generation_std'], heat_pump_cop_std=input_data['heat_pump_cop_std'])
 
     stage_node_ranges = extract_stage_node_ranges(scenario_tree)
     scenario_paths, scenario_path_probabilities = extract_scenario_paths_and_probabilities(scenario_tree)
 
-    total_periods = numStages * numSubperiods
+    plus_vars = {}
+    opt_results = {}
+    with open(results_sol_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
 
-    csv_path = os.path.join(input_data['results_directory'], 'dispatch_results.csv')
-    csv_file = open(csv_path, 'w', newline='')
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(['node_id', 'subperiod', 'subterm', 'electricity_purchase', 'heat_purchase', 'electricity_purchase_cost', 'heat_purchase_cost'])
+            parts = line.split()
+            if len(parts) >= 2:
+                var_name = parts[0]
+                if "plus" in var_name:
+                    plus_vars[var_name] = float(parts[1])
+                elif var_name.startswith("electricitypurchase_") or var_name.startswith("heatpurchase_"):
+                    dv_name, node_id, indices = parse(var_name)
+                    if node_id == 0:
+                        continue
+                    key = (node_id, int(indices[0]), int(indices[1]))
+                    if key not in opt_results:
+                        opt_results[key] = {'e': 0.0, 'h': 0.0}
+                    if "electricitypurchase" in dv_name:
+                        opt_results[key]['e'] = float(parts[1])
+                    elif "heatpurchase" in dv_name:
+                        opt_results[key]['h'] = float(parts[1])
 
-    prev_carry_values = {}
+    scenario_tree.plus_vars = plus_vars
 
-    for period in range(1, total_periods + 1):
-        subperiod_start_time = time.time()
-        subperiod_optimization_time = 0
-        stage_no = ((period - 1) // numSubperiods) + 1
+    master_seed_seq = np.random.SeedSequence(42)
+    child_seeds = master_seed_seq.spawn(numReplications)
 
-        for solve_node_id in stage_node_ranges[stage_no]:
-            solve_node = scenario_tree.nodes[solve_node_id]
+    all_results = {}
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=num_workers,
+        initializer=_init_replication_worker,
+        initargs=(copy.deepcopy(scenario_tree), stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length)
+    ) as executor:
+        futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
 
-            if period % numSubperiods == 1:
-                carry_nodes = [solve_node.FindAncestorFromDiff(period - 1, period).id] if period > 1 else [0]
-            else:
-                carry_nodes = [solve_node_id]
+        for future in concurrent.futures.as_completed(futures):
+            replication_index, rows, elapsed = future.result()
+            all_results[replication_index] = rows
+            print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
 
-            model = Dispatch(carry_nodes, period, numSubterms, scenario_tree, input_data['results_directory'], results_sol_path, model_name='Dispatch')
+    opt_rows = []
+    for (node_id, subperiod, subterm), values in opt_results.items():
+        opt_rows.append(('optimization', node_id, subperiod, subterm, values['e'], values['h']))
 
-            if period > 1:
-                prev_node = solve_node.FindAncestorFromDiff(period - 1, period)
-                prev_node.e_Carrying[period - 1, numSubterms].lb = prev_carry_values[prev_node.id]['e']
-                prev_node.e_Carrying[period - 1, numSubterms].ub = prev_carry_values[prev_node.id]['e']
-                prev_node.h_Carrying[period - 1, numSubterms].lb = prev_carry_values[prev_node.id]['h']
-                prev_node.h_Carrying[period - 1, numSubterms].ub = prev_carry_values[prev_node.id]['h']
+    all_results['optimization'] = opt_rows
 
-            for i in range(1, subterm_interval_length):
-                model = Interval(period, i, [solve_node_id], scenario_tree, model, input_data['electricity_demand'], input_data['heat_demand'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
+    csv_path = os.path.join(input_data['results_directory'], 'robust_simulation_results.csv')
+    with open(csv_path, 'w', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['replication', 'node_id', 'subperiod', 'subterm', 'electricity_purchase', 'heat_purchase'])
+        
+        int_keys = sorted([k for k in all_results.keys() if isinstance(k, int)])
+        csv_writer.writerows(all_results['optimization'])
+        for r in int_keys:
+            csv_writer.writerows(all_results[r])
 
-            for subterm_no in range(1, numSubterms + 1):
-                next_to_add = subterm_no + subterm_interval_length - 1
-                if next_to_add <= numSubterms:
-                    model = Interval(period, next_to_add, [solve_node_id], scenario_tree, model, input_data['electricity_demand'], input_data['heat_demand'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
-                elif period < total_periods:
-                    next_period = period + 1
-                    next_stage_no = ((next_period - 1) // numSubperiods) + 1
-                    new_st_no = next_to_add - numSubterms
-                    if next_stage_no == stage_no:
-                        model = Interval(next_period, new_st_no, [solve_node_id], scenario_tree, model, input_data['electricity_demand'], input_data['heat_demand'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
-                    else:
-                        child_ids = [child.id for child in solve_node.children]
-                        model = Interval(next_period, new_st_no, child_ids, scenario_tree, model, input_data['electricity_demand'], input_data['heat_demand'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
+    annual = defaultdict(lambda: {'electricity': 0.0, 'heat': 0.0})
+    for key, rows in all_results.items():
+        for rep, node_id, subperiod, _subterm, e_purch, h_purch in rows:
+            annual[(rep, node_id, subperiod)]['electricity'] += e_purch
+            annual[(rep, node_id, subperiod)]['heat'] += h_purch
 
-                model.update()
-                model.optimize()
-                subperiod_optimization_time += model.Runtime
+    opt_agg_keys = sorted([k for k in annual if k[0] == 'optimization'], key=lambda x: (x[1], x[2]))
+    rep_agg_keys = sorted([k for k in annual if isinstance(k[0], int)], key=lambda x: (x[0], x[1], x[2]))
 
-                csv_writer.writerow([solve_node_id, period, subterm_no, solve_node.e_Purchase[period, subterm_no].X, solve_node.h_Purchase[period, subterm_no].X, solve_node.e_Purchase[period, subterm_no].X * solve_node.e_Purchase[period, subterm_no].Obj, solve_node.h_Purchase[period, subterm_no].X * solve_node.h_Purchase[period, subterm_no].Obj])
+    annual_csv_path = os.path.join(input_data['results_directory'], 'annual_purchases.csv')
+    with open(annual_csv_path, 'w', newline='') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['replication', 'node_id', 'subperiod', 'annual_electricity_purchase', 'annual_heat_purchase'])
+        for k in opt_agg_keys + rep_agg_keys:
+            csv_writer.writerow([k[0], k[1], k[2], annual[k]['electricity'], annual[k]['heat']])
 
-                vars_subterm = ([
-                            f"electricitypurchase_{solve_node_id}[{period},{subterm_no}]",
-                            f"heatpurchase_{solve_node_id}[{period},{subterm_no}]",
-                            f"electricitycarry_{solve_node_id}[{period},{subterm_no}]",
-                            f"heatcarry_{solve_node_id}[{period},{subterm_no}]",
-                            f"electricitycharge_{solve_node_id}[{period},{subterm_no}]",
-                            f"heatcharge_{solve_node_id}[{period},{subterm_no}]",
-                            f"electricitydischarge_{solve_node_id}[{period},{subterm_no}]",
-                            f"heatdischarge_{solve_node_id}[{period},{subterm_no}]",
-                            f"electricityused_{solve_node_id}[{period},{subterm_no}]",
-                            f"heatused_{solve_node_id}[{period},{subterm_no}]"]
-                            + [f"transferredheat_{solve_node_id}[{subterm_no},{tech.tree.type},{v},{t},{period}]"
-                            for tech in solve_node.heattransfertechNodeList for v in range(tech.NumVersion) for t in solve_node.allSubperiods if t <= period < t + tech.lifetime[v]])
-
-                vars_to_fix = []
-                values_to_fix = []
-                for var_name in vars_subterm:
-                    var = model.getVarByName(var_name)
-                    vars_to_fix.append(var)
-                    values_to_fix.append(var.X)
-                model.setAttr('LB', vars_to_fix, values_to_fix)
-                model.setAttr('UB', vars_to_fix, values_to_fix)
-
-            prev_carry_values[solve_node_id] = {'e': solve_node.e_Carrying[period, numSubterms].X, 'h': solve_node.h_Carrying[period, numSubterms].X}
-
-            del model
-
-        print(f"Subperiod {period} completed in {time.time() - subperiod_start_time:.2f} seconds")
-        print(f"Subperiod {period} optimization time {subperiod_optimization_time:.2f} seconds")
-
-    csv_file.close()
     print(f"Total Execution Time: {time.time() - execution_start_time:.2f} seconds")
