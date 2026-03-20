@@ -6,13 +6,12 @@ import time
 import numpy as np
 import concurrent.futures
 from fetch_data import fetch_data
-from collections import defaultdict
 from gurobipy import GRB, Model, quicksum
 from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
 
 _worker_state = None
 
-def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length):
+def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities):
     global _worker_state
 
     _worker_state = {
@@ -25,11 +24,13 @@ def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, 
         'total_periods': numStages * numSubperiods,
         'subterm_interval_length': subterm_interval_length,
         'perturbed_subterm_interval_length': perturbed_subterm_interval_length,
+        'epsilon': epsilon,
         'nominal_e_demand': input_data['electricity_demand'],
         'nominal_h_demand': input_data['heat_demand'],
         'e_demand_std': input_data['electricity_demand_std'],
         'h_demand_std': input_data['heat_demand_std'],
         'random_data': ['electricity_demand', 'heat_demand', 'solar', 'wind', 'parabolic_trough', 'heat_pump'],
+        'node_probabilities': node_probabilities,
     }
 
 def run_single_replication(args):
@@ -51,7 +52,9 @@ def run_single_replication(args):
     nominal_h_demand = ws['nominal_h_demand']
     e_demand_std = ws['e_demand_std']
     h_demand_std = ws['h_demand_std']
+    epsilon = ws['epsilon']
     random_data_sources = ws['random_data']
+    node_probabilities = ws['node_probabilities']
 
     replication_start_time = time.time()
 
@@ -64,9 +67,15 @@ def run_single_replication(args):
 
     perturbed_e_demand = [None]
     perturbed_h_demand = [None]
+    robust_e_demand = [None]
+    robust_h_demand = [None]
     for period in range(1, total_periods + 1):
         perturbed_e_demand.append([max(0, nominal_e_demand[period][p] + random_number_stream['electricity_demand'][period][p] * e_demand_std[period][p]) for p in range(numSubterms)])
         perturbed_h_demand.append([max(0, nominal_h_demand[period][p] + random_number_stream['heat_demand'][period][p] * h_demand_std[period][p]) for p in range(numSubterms)])
+        robust_e_demand.append([nominal_e_demand[period][p] + epsilon * e_demand_std[period][p] for p in range(numSubterms)])
+        robust_h_demand.append([nominal_h_demand[period][p] + epsilon * h_demand_std[period][p] for p in range(numSubterms)])
+
+    robust_z = {'solar': -epsilon, 'wind': -epsilon, 'parabolic_trough': -epsilon, 'heat_pump': -epsilon}
 
     def get_perturbation_z(period, subterm_index):
         return {
@@ -76,7 +85,7 @@ def run_single_replication(args):
             'heat_pump': random_number_stream['heat_pump'][period][subterm_index],
         }
 
-    rows = []
+    stats = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0, 'e_violation_count': 0, 'h_violation_count': 0,}
     prev_carry_values = {}
 
     for stage_no in range(1, numStages + 1):
@@ -91,11 +100,11 @@ def run_single_replication(args):
 
             solve_node.InitializeModel(model, subterm_interval_length)
 
-            first_period = (stage_no - 1) * numSubperiods + 1
-            last_period = stage_no * numSubperiods
+            stage_first_period = (stage_no - 1) * numSubperiods + 1
+            stage_last_period = stage_no * numSubperiods
 
-            for period in range(first_period, last_period + 1):
-                if period == first_period:
+            for period in range(stage_first_period, stage_last_period + 1):
+                if period == stage_first_period:
                     if period > 1:
                         prev_node_id = solve_node.FindAncestorFromDiff(period - 1, period).id
                         if prev_node_id in prev_carry_values:
@@ -108,9 +117,12 @@ def run_single_replication(args):
                     solve_node.InitializeConstraints(model, subterm_interval_length, period, initial_subterms, nominal_e_demand, nominal_h_demand, input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
                     slot_mapped_periods = {s: period for s in range(1, subterm_interval_length+1)}
 
-                    for s in range(1, perturbed_subterm_interval_length + 1):
-                        p_z = get_perturbation_z(period, s - 1)
-                        solve_node.UpdateDemandData(model, s, period, s, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
+                    for s in range(1, subterm_interval_length + 1):
+                        if s <= perturbed_subterm_interval_length:
+                            p_z = get_perturbation_z(period, s - 1)
+                            solve_node.UpdateDemandData(model, s, period, s, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
+                        else:
+                            solve_node.UpdateDemandData(model, s, period, s, robust_e_demand, robust_h_demand, perturbation_z=robust_z)
 
                 else:
                     solve_node.e_Carrying[0].lb = solve_node.e_Carrying[1].X
@@ -124,7 +136,7 @@ def run_single_replication(args):
                             p_z = get_perturbation_z(period, s - 1)
                             solve_node.UpdateDemandData(model, s, period, s, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
                         else:
-                            solve_node.UpdateDemandData(model, s, period, s, nominal_e_demand, nominal_h_demand)
+                            solve_node.UpdateDemandData(model, s, period, s, robust_e_demand, robust_h_demand, perturbation_z=robust_z)
                     slot_mapped_periods = {s: period for s in range(1, subterm_interval_length+1)}
 
                 last_active_slot = subterm_interval_length
@@ -155,7 +167,7 @@ def run_single_replication(args):
                                     p_z = get_perturbation_z(mapped_period, mapped_subterm - 1)
                                     solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, perturbed_e_demand, perturbed_h_demand, perturbation_z=p_z)
                                 else:
-                                    solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, nominal_e_demand, nominal_h_demand)
+                                    solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, robust_e_demand, robust_h_demand, perturbation_z=robust_z)
 
                     if solve_node.e_Carrying[last_active_slot].Obj != -1e-4:
                         solve_node.e_Carrying[last_active_slot].Obj = -1e-4
@@ -164,14 +176,29 @@ def run_single_replication(args):
                     model.update()
                     model.optimize()
 
-                    rows.append((replication_index, solve_node_id, period, subterm_no, solve_node.e_Purchase[1].X, solve_node.h_Purchase[1].X))
+                    e_purch = solve_node.e_Purchase[1].X
+                    h_purch = solve_node.h_Purchase[1].X
+                    node_prob = node_probabilities[solve_node_id]
+
+                    stats['e_purchase'] += e_purch * node_prob
+                    stats['h_purchase'] += h_purch * node_prob
+                    stats['e_cost'] += e_purch * solve_node.e_Purchase[1].Obj
+                    stats['h_cost'] += h_purch * solve_node.h_Purchase[1].Obj
+
+                    if period == total_periods:
+                        if e_purch > 1e-5:
+                            stats['e_violation'] += e_purch * node_prob
+                            stats['e_violation_count'] += 1
+                        if h_purch > 1e-5:
+                            stats['h_violation'] += h_purch * node_prob
+                            stats['h_violation_count'] += 1
 
                 prev_carry_values[solve_node_id] = {'e': solve_node.e_Carrying[1].X, 'h': solve_node.h_Carrying[1].X}
 
             del model
 
     elapsed = time.time() - replication_start_time
-    return replication_index, rows, elapsed
+    return replication_index, stats, elapsed
 
 class ScenarioNodeDispatch:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):
@@ -224,10 +251,7 @@ class ScenarioNodeDispatch:
     def GetPlusValue(self, tech_type, version, t, t_):
         ancestor = self.FindAncestorFromDiff(t, t_)
         key = f"plus_{ancestor.id}[{tech_type},{version},{t}]"
-        if key in self.tree.plus_vars:
-            return self.tree.plus_vars[key]
-        key_with_spaces = f"plus_{ancestor.id}[{tech_type}, {version}, {t}]"
-        return self.tree.plus_vars.get(key_with_spaces, 0.0)
+        return self.tree.plus_vars[key]
 
     def ComputeElectricityGeneration(self, t_, p, perturbation_z=None):
         total = 0.0
@@ -394,6 +418,8 @@ class ScenarioNodeDispatch:
             var.ub = 0
         self.e_Purchase[s].Obj = 0
         self.h_Purchase[s].Obj = 0
+        self.e_Carrying[s].Obj = 0
+        self.h_Carrying[s].Obj = 0
         model.chgCoeff(self.inv_bal_e_constrs[s], self.e_Carrying[s-1], 0.0)
         model.chgCoeff(self.inv_bal_h_constrs[s], self.h_Carrying[s-1], 0.0)
         self.demand_e_constrs[s].RHS = 0
@@ -481,10 +507,10 @@ if __name__ == '__main__':
     numSubperiods = 5
     numSubterms = 1092
     numMultipliers = 2
-    tolerance = 0.01
 
     subterm_interval_length = 12
     perturbed_subterm_interval_length = 3
+    epsilon = 0
     numReplications = 100
 
     num_workers = min(os.cpu_count(), numReplications)
@@ -528,49 +554,53 @@ if __name__ == '__main__':
     master_seed_seq = np.random.SeedSequence(42)
     child_seeds = master_seed_seq.spawn(numReplications)
 
-    all_results = {}
+    node_probabilities = {}
+    for path_id, nodes in scenario_paths.items():
+        for node_id in nodes:
+            if node_id not in node_probabilities:
+                node_probabilities[node_id] = 0.0
+            node_probabilities[node_id] += scenario_path_probabilities[path_id]
+
+    optimal_results = ['optimal', 0, 0, 0, 0, 0, 0, 0, 0]
+    for (node_id, subperiod, subterm), values in opt_results.items():
+        node_prob = node_probabilities[node_id]
+        optimal_results[1] += values['e'] * node_prob
+        optimal_results[2] += values['h'] * node_prob
+        optimal_results[3] += values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+        optimal_results[4] += values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+
+    totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
+    e_violation_reps = 0
+    h_violation_reps = 0
+
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_workers,
         initializer=_init_replication_worker,
-        initargs=(copy.deepcopy(scenario_tree), stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length)
+        initargs=(copy.deepcopy(scenario_tree), stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities)
     ) as executor:
         futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
 
         for future in concurrent.futures.as_completed(futures):
-            replication_index, rows, elapsed = future.result()
-            all_results[replication_index] = rows
+            replication_index, stats, elapsed = future.result()
+            totals['e_purchase'] += stats['e_purchase']
+            totals['h_purchase'] += stats['h_purchase']
+            totals['e_cost'] += stats['e_cost']
+            totals['h_cost'] += stats['h_cost']
+            totals['e_violation'] += stats['e_violation']
+            totals['h_violation'] += stats['h_violation']
+            if stats['e_violation_count'] > 0:
+                e_violation_reps += 1
+            if stats['h_violation_count'] > 0:
+                h_violation_reps += 1
             print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
 
-    opt_rows = []
-    for (node_id, subperiod, subterm), values in opt_results.items():
-        opt_rows.append(('optimization', node_id, subperiod, subterm, values['e'], values['h']))
-
-    all_results['optimization'] = opt_rows
-
-    csv_path = os.path.join(input_data['results_directory'], 'robust_simulation_results.csv')
-    with open(csv_path, 'w', newline='') as csv_file:
+    final_results_csv_path = os.path.join(input_data['results_directory'], 'simulation_results.csv')
+    file_exists = os.path.isfile(final_results_csv_path)
+    with open(final_results_csv_path, 'a', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['replication', 'node_id', 'subperiod', 'subterm', 'electricity_purchase', 'heat_purchase'])
-        
-        int_keys = sorted([k for k in all_results.keys() if isinstance(k, int)])
-        csv_writer.writerows(all_results['optimization'])
-        for r in int_keys:
-            csv_writer.writerows(all_results[r])
-
-    annual = defaultdict(lambda: {'electricity': 0.0, 'heat': 0.0})
-    for key, rows in all_results.items():
-        for rep, node_id, subperiod, _subterm, e_purch, h_purch in rows:
-            annual[(rep, node_id, subperiod)]['electricity'] += e_purch
-            annual[(rep, node_id, subperiod)]['heat'] += h_purch
-
-    opt_agg_keys = sorted([k for k in annual if k[0] == 'optimization'], key=lambda x: (x[1], x[2]))
-    rep_agg_keys = sorted([k for k in annual if isinstance(k[0], int)], key=lambda x: (x[0], x[1], x[2]))
-
-    annual_csv_path = os.path.join(input_data['results_directory'], 'annual_purchases.csv')
-    with open(annual_csv_path, 'w', newline='') as csv_file:
-        csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['replication', 'node_id', 'subperiod', 'annual_electricity_purchase', 'annual_heat_purchase'])
-        for k in opt_agg_keys + rep_agg_keys:
-            csv_writer.writerow([k[0], k[1], k[2], annual[k]['electricity'], annual[k]['heat']])
+        if not file_exists:
+            csv_writer.writerow(['model', 'electricity purchase', 'heat purchase', 'electricity cost', 'heat cost', 'electricity violation', 'heat violation', 'electricity violation replications', 'heat violation replications'])
+            csv_writer.writerow(optimal_results)
+        csv_writer.writerow([totals['e_purchase']/numReplications, totals['h_purchase']/numReplications, totals['e_cost']/numReplications, totals['h_cost']/numReplications, (100 * (totals['e_violation']/numReplications) / sum(input_data['electricity_demand'][-1])), (100 * (totals['h_violation']/numReplications) / sum(input_data['heat_demand'][-1])), e_violation_reps, h_violation_reps])
 
     print(f"Total Execution Time: {time.time() - execution_start_time:.2f} seconds")

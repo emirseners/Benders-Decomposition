@@ -42,9 +42,9 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
         input_data['heat_storage_initial'], worst_technology_advancements['heat_storage'], 
         numSubterms, numSubperiods, numStages, 1, mssp_flag=True)
     
-    worst_sp_model = MSSPProblemModel(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
-                        input_data['heat_demand'], worst_scenario_path_initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'],
-                        input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, tolerance, 'WorstIncumbent')
+    worst_sp_model, worst_sp_env = MSSPProblemModel(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
+                                   input_data['heat_demand'], worst_scenario_path_initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'],
+                                   input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, tolerance, 'WorstIncumbent')
     
     last_subperiod = numStages * numSubperiods
     second_to_last_subperiod = last_subperiod - 1
@@ -84,5 +84,8 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
                         t_ = int(indices[4])
                         if t_ == last_subperiod:
                             incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]},{indices[2]},{indices[3]},{indices[4]}]'] = v.X
+
+    worst_sp_model.dispose()
+    worst_sp_env.dispose()
 
     return incumbent_solution

@@ -501,8 +501,8 @@ def benders_callback(model, where):
 
 def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initial_tech, emission_limits, electricity_demand, heat_demand, 
                       budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, log_file, discount_factor, scenario_paths, 
-                      scenario_path_probabilities, tolerance, benders_without_feasibility_flag, multi_cut_flag, callback_flag, write_cuts_flag, 
-                      continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution):
+                      scenario_path_probabilities, tolerance, benders_without_feasibility_flag, aggregated_subproblems_flag, multi_cut_flag, 
+                      callback_flag, write_cuts_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution):
     
     if benders_without_feasibility_flag:
         from benders_model_feas import MasterProblemModel, SubProblemModel, OperationalNonanticipativityModel
@@ -515,11 +515,11 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
         executor = concurrent.futures.ProcessPoolExecutor(
             max_workers=1,
             initializer=_init_worker_subproblem,
-            initargs=(SubProblemModel, scenario_path_id, scenario_path_nodes, scenarioTree_copy, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads_per_worker, discount_factor)
+            initargs=(SubProblemModel, scenario_path_id, scenario_path_nodes, scenarioTree_copy, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads_per_worker, discount_factor, aggregated_subproblems_flag)
         )
         executors[scenario_path_id] = executor
 
-    master_model, separation_data = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance)
+    master_model, master_env, separation_data = MasterProblemModel(copy.deepcopy(scenarioTree), emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance)
 
     cuts_file = open(os.path.join(results_directory, 'GeneratedCuts.txt'), 'w') if write_cuts_flag else None
 
@@ -747,8 +747,8 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             if gap < tolerance:
                 break
 
-    lp_filename = os.path.join(results_directory, 'MasterModel.lp')
-    master_model.write(lp_filename)
+    #lp_filename = os.path.join(results_directory, 'MasterModel.lp')
+    #master_model.write(lp_filename)
     
     final_gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
     summary_lines = [
@@ -784,64 +784,40 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
     for executor in executors.values():
         executor.shutdown(wait=True)
 
-    operational_model = OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor)
+    if aggregated_subproblems_flag == False:
+        operational_model, operational_env = OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, aggregated_subproblems_flag)
 
-    vars_to_fix = []
-    bounds = []
-    
-    for var_name, var_value in best_ub_lookup.items():
-        if var_name.startswith("plus_"):
+        vars_to_fix = []
+        bounds = []
+        
+        for var_name, var_value in best_ub_lookup.items():
+            if var_name.startswith("plus_"):
+                var = operational_model.getVarByName(var_name)
+                if var is not None:
+                    vars_to_fix.append(var)
+                    bounds.append(var_value)
+        
+        operational_model.setAttr('LB', vars_to_fix, bounds)
+        operational_model.setAttr('UB', vars_to_fix, bounds)
+
+        for var_name, var_value in electricity_carry_values.items():
             var = operational_model.getVarByName(var_name)
-            if var is not None:
-                vars_to_fix.append(var)
-                bounds.append(var_value)
-    
-    operational_model.setAttr('LB', vars_to_fix, bounds)
-    operational_model.setAttr('UB', vars_to_fix, bounds)
+            var.LB = var_value
 
-    for var_name, var_value in electricity_carry_values.items():
-        var = operational_model.getVarByName(var_name)
-        var.LB = var_value
+        for var_name, var_value in heat_carry_values.items():
+            var = operational_model.getVarByName(var_name)
+            var.LB = var_value
 
-    for var_name, var_value in heat_carry_values.items():
-        var = operational_model.getVarByName(var_name)
-        var.LB = var_value
+        operational_model.update()
+        operational_model.optimize()
 
-    operational_model.update()
-    operational_model.optimize()
+        with open(final_sol_file, 'a') as f:
+            for var in operational_model.getVars():
+                if not var.varName.startswith('plus_'):
+                    f.write(f"{var.varName} {var.X}\n")
 
-    with open(final_sol_file, 'a') as f:
-        for var in operational_model.getVars():
-            if not var.varName.startswith('plus_'):
-                f.write(f"{var.varName} {var.X}\n")
+        operational_model.dispose()
+        operational_env.dispose()
 
-    sol_values = {}
-    with open(final_sol_file, 'r') as f:
-        for line in f:
-            parts = line.strip().split()
-            sol_values[parts[0]] = float(parts[1])
-    
-'''    last_period = (numStages-1) * numSubperiods
-    e_discharge_eff = scenarioTree.nodes[-1].electricitystoragetechNodeList[0].storage_discharging_efficiency[0]
-    h_discharge_eff = scenarioTree.nodes[-1].heatstoragetechNodeList[0].storage_discharging_efficiency[0]
-    e_self_discharge_eff = scenarioTree.nodes[-1].electricitystoragetechNodeList[0].storage_self_discharge_rate[0]
-    h_self_discharge_eff = scenarioTree.nodes[-1].heatstoragetechNodeList[0].storage_self_discharge_rate[0]
-
-    discharge_lines = []
-    for scenario_path_id, scenario_path_nodes in scenario_paths.items():
-        leaf_node_id = scenario_path_nodes[-1]
-        leaf_parent_node_id = scenario_path_nodes[-2]
-        
-        e_carry_prev = sol_values[f'electricitycarry_{leaf_parent_node_id}[{last_period},{numSubterms}]']
-        e_carry_curr = sol_values[f'electricitycarry_{leaf_node_id}[{last_period + 1},1]']
-        h_carry_prev = sol_values[f'heatcarry_{leaf_parent_node_id}[{last_period},{numSubterms}]']
-        h_carry_curr = sol_values[f'heatcarry_{leaf_node_id}[{last_period + 1},1]']
-        
-        e_discharge = max(0, e_discharge_eff * (e_self_discharge_eff * e_carry_prev - e_carry_curr))
-        h_discharge = max(0, h_discharge_eff * (h_self_discharge_eff * h_carry_prev - h_carry_curr))
-        
-        discharge_lines.append(f"electricitydischarge_{leaf_node_id}[{last_period + 1},1] {e_discharge}\n")
-        discharge_lines.append(f"heatdischarge_{leaf_node_id}[{last_period + 1},1] {h_discharge}\n")
-    
-    with open(final_sol_file, 'a') as f:
-        f.writelines(discharge_lines)'''
+    master_model.dispose()
+    master_env.dispose()

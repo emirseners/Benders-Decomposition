@@ -93,11 +93,14 @@ class ScenarioNode:
                 for t in self.stageSubperiods:
                     self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
 
-    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor):
+    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag):
         for t in self.stageSubperiods:
             discount_t = discount_factor ** t
             e_cost_t = electricity_purchasing_cost[t] * discount_t
             h_cost_t = heat_purchasing_cost[t] * discount_t
+            if aggregated_subproblems_flag:
+                e_cost_t *= self.probability
+                h_cost_t *= self.probability
             for p in self.stageSubterms:
                 self.e_Purchase[t,p].Obj = e_cost_t
                 self.h_Purchase[t,p].Obj = h_cost_t
@@ -262,7 +265,7 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
     model.setParam('Threads', threads)
-    model.setParam('LogFile', log_file_path)
+    #model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
     #model.setParam('FeasibilityTol', 1e-8)
 
@@ -278,9 +281,9 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     #lp_filename = os.path.join(results_directory, f'{model_key}.lp')
     #model.write(lp_filename)
 
-    return model, separation_data
+    return model, master_env, separation_data
 
-def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor):
+def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, aggregated_subproblems_flag):
     global _worker_model, _worker_env
 
     _worker_env = Env(empty=True)
@@ -293,7 +296,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
     for node in scenarioPathnodes:
         node.AddSubproblemDecisionVariables(_worker_model)
         if node.id != 0:
-            node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor)
+            node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag)
             node.AddSubproblemDemandConstraints(_worker_model, electricity_demand, heat_demand)
             node.AddSubproblemInventoryBalanceConstraints(_worker_model)
             node.AddSubproblemStorageCapacityConstraints(_worker_model)
@@ -304,7 +307,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
 
     _worker_model.setParam('InfUnbdInfo', 1)
     _worker_model.setParam('Threads', threads)
-    _worker_model.setParam('LogFile', log_file_path)
+    #_worker_model.setParam('LogFile', log_file_path)
     _worker_model.setParam('LogToConsole', 0)
     _worker_model.update()
     
@@ -345,7 +348,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
     
     return _worker_model
 
-def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor):
+def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, aggregated_subproblems_flag):
     model_key = 'OperationalNonanticipativity'
     operationalnonanticipativity_env = Env(empty=True)
     operationalnonanticipativity_env.start()
@@ -355,7 +358,7 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
         if len(node.children) != 0:
             node.AddSubproblemDecisionVariables(model)
             if node.id != 0:
-                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor)
+                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag)
                 node.AddSubproblemDemandConstraints(model, electricity_demand, heat_demand)
                 node.AddSubproblemInventoryBalanceConstraints(model)
                 node.AddSubproblemStorageCapacityConstraints(model)
@@ -364,8 +367,8 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
     model.setParam('Threads', threads)
-    model.setParam('LogFile', log_file_path)
+    #model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
     model.update()
 
-    return model
+    return model, operationalnonanticipativity_env

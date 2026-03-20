@@ -1,7 +1,7 @@
 import os
 import math
 from fetch_data import fetch_data
-from gurobipy import GRB, Model, quicksum
+from gurobipy import GRB, Model, quicksum, Env
 from scenario_tree import generate_scenario_tree
 
 class ScenarioNodeMSSP:
@@ -153,7 +153,9 @@ class ScenarioNodeMSSP:
                         self.v_Plus[tech.tree.type,v,t].ub = ub_v
 
 def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, discount_factor, results_sol_path, tolerance, model_name):
-    model = Model(model_name)
+    mssp_env = Env(empty=True)
+    mssp_env.start()
+    model = Model(model_name, env=mssp_env)
     model.setParam('OutputFlag', 1)
 
     for node in scenarioTree.nodes:
@@ -205,10 +207,11 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 
     log_file_path = os.path.join(results_directory, f'{model_name}_GurobiLog.txt')
 
-    model.setParam('MIPFocus', 3)    
+    model.setParam('MIPFocus', 3)
     model.setParam('TimeLimit', 86400)
     model.setParam('MIPGap', tolerance)
     model.setParam('NodefileStart', 0.95)
+    model.setParam('FeasibilityTol', 1e-5)
     model.setParam('Threads', 4)
     model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
@@ -230,18 +233,29 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
         for var in model.getVars():
             f.write(f'{var.VarName} {var.X}\n')
 
-    return model
+    return model, mssp_env
 
-def run_mssp_verification(numStages=3, numSubperiods=5, numSubterms=1092, numMultipliers=2, tolerance=0.01):
-    input_data = fetch_data(numStages, numSubperiods, numSubterms)
-
+def run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance):
     results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
     
     scenario_tree_verify, initial_tech_verify = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
     
-    MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], 
-                     initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
-                     input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')
+    verify_model, verify_env = MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], 
+                               initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
+                               input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')
+
+    verify_model.dispose()
+    verify_env.dispose()
 
 if __name__ == '__main__':
-    run_mssp_verification()
+    numStages = 3
+    numSubperiods = 5
+    numSubterms = 1092
+    numMultipliers = 2
+    epsilon = 0
+
+    tolerance=0.01
+
+    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon = epsilon)
+
+    run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance)
