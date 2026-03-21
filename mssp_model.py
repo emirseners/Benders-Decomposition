@@ -174,33 +174,32 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 
     model.update()
 
-    if results_sol_path:
-        solution_values = {}
-        with open(results_sol_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                
-                parts = line.split()
-                if len(parts) >= 2:
-                    var_name = parts[0]
-                    var_value = float(parts[1])
-                    solution_values[var_name] = var_value
+    solution_values = {}
+    with open(results_sol_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            parts = line.split()
+            if len(parts) >= 2:
+                var_name = parts[0]
+                var_value = float(parts[1])
+                solution_values[var_name] = var_value
 
-        vars_to_fix = []
-        values_to_fix = []
-        unfixed_vars = []
+    vars_to_fix = []
+    values_to_fix = []
+    unfixed_vars = []
 
-        for var in model.getVars():
-            if var.varName in solution_values:
-                vars_to_fix.append(var)
-                values_to_fix.append(solution_values[var.varName])
-            else:
-                unfixed_vars.append(var.varName)
+    for var in model.getVars():
+        if var.varName in solution_values:
+            vars_to_fix.append(var)
+            values_to_fix.append(solution_values[var.varName])
+        else:
+            unfixed_vars.append(var.varName)
 
-        model.setAttr('LB', vars_to_fix, values_to_fix)
-        model.setAttr('UB', vars_to_fix, values_to_fix)
+    model.setAttr('LB', vars_to_fix, values_to_fix)
+    model.setAttr('UB', vars_to_fix, values_to_fix)
 
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
@@ -212,8 +211,8 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
     model.setParam('MIPGap', tolerance)
     model.setParam('NodefileStart', 0.95)
     model.setParam('FeasibilityTol', 1e-5)
-    model.setParam('Threads', 4)
-    model.setParam('LogFile', log_file_path)
+    model.setParam('Threads', 1)
+    #model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
     model.setParam('NodefileDir', '.')
     model.update()
@@ -226,12 +225,8 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
         model.computeIIS()
         iis_file_path = os.path.join(results_directory, f'{model_name}_IIS.ilp')
         model.write(iis_file_path)
-
-    sol_file_path = os.path.join(results_directory, f'{model_name}.sol')
-    with open(sol_file_path, 'w') as f:
-        f.write(f'# Objective value = {model.ObjVal}\n')
-        for var in model.getVars():
-            f.write(f'{var.VarName} {var.X}\n')
+    else:
+        model.write(results_sol_path)
 
     return model, mssp_env
 

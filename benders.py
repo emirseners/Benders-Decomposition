@@ -5,14 +5,16 @@ import numba
 import threading
 import numpy as np
 import concurrent.futures
-from gurobipy import GRB, quicksum
-from collections import defaultdict
+from gurobipy import GRB, LinExpr
 
 _cached_worker_model = None
 
 def _init_worker_subproblem(subproblem_builder, *args):
     global _cached_worker_model
     _cached_worker_model = subproblem_builder(*args)
+
+def get_nonant_var_names():
+    return _cached_worker_model._nonant_var_names
 
 def solve_subproblem(nonanticipativity_lookup):
     _worker_model = _cached_worker_model
@@ -30,116 +32,106 @@ def solve_subproblem(nonanticipativity_lookup):
     status = _worker_model.status
     feasibility_flag = status == GRB.OPTIMAL
 
-    var_name_to_idx = _worker_model._var_name_to_idx
-    constr_nonant_map = _worker_model._constr_nonant_map
+    A_nonant = _worker_model._A_nonant
     all_constrs = _worker_model._all_constrs
-    nonant_idx_to_name = _worker_model._nonant_idx_to_name
-    
-    nonant_values = {}
-    for name, val in nonanticipativity_lookup.items():
-        idx = var_name_to_idx.get(name)
-        if idx is not None:
-            nonant_values[idx] = val
-    
-    dv_coefficients = defaultdict(float)
-    
+
+    nonant_values_arr = np.array(bounds)
+
     if feasibility_flag:
         objective_value = _worker_model.objVal
-        constant = objective_value
-        dual_values_list = _worker_model.getAttr('Pi', all_constrs)
-        dual_values = np.array(dual_values_list)
-        
-        for constr_idx, row_entries in constr_nonant_map.items():
-            pi = dual_values[constr_idx]
-            if pi == 0.0:
-                continue
-            
-            for var_idx, coeff in row_entries:
-                dv_coef = coeff * pi
-                dv_coefficients[nonant_idx_to_name[var_idx]] -= dv_coef
-                constant += dv_coef * nonant_values[var_idx]
+        dual_values = np.array(_worker_model.getAttr('Pi', all_constrs))
+        dv_array = dual_values @ A_nonant
+        constant = objective_value + np.dot(dv_array, nonant_values_arr)
+        dv_coefs = -dv_array
     else:
         objective_value = float('inf')
-        all_rhs = _worker_model._all_rhs
-        farkas_values_list = _worker_model.getAttr('FarkasDual', all_constrs)
-        farkas_values = np.array(farkas_values_list)
-        rhs_array = np.array(all_rhs)
-        constant = np.dot(farkas_values, rhs_array)
+        farkas_values = np.array(_worker_model.getAttr('FarkasDual', all_constrs))
+        constant = np.dot(farkas_values, _worker_model._all_rhs)
+        dv_array = farkas_values @ A_nonant
+        dv_coefs = -dv_array
 
-        for constr_idx, row_entries in constr_nonant_map.items():
-            pi = farkas_values[constr_idx]
-            if pi == 0.0:
-                continue
-            
-            for var_idx, coeff in row_entries:
-                dv_coefficients[nonant_idx_to_name[var_idx]] -= coeff * pi
-    
-    return objective_value, constant, dict(dv_coefficients), feasibility_flag, status
+    return objective_value, constant, dv_coefs, feasibility_flag, status
 
-def add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, master_var_cache):
+def _compute_scale_factor(constant, dv_array, nonzero_idx):
+    max_abs_coef = np.max(np.abs(dv_array[nonzero_idx])) if len(nonzero_idx) > 0 else 0.0
+    max_abs_value = max(abs(constant), max_abs_coef)
+    return 1.0 / (max_abs_value / 1e+06) if max_abs_value > 1e+06 else 1.0
+
+def _build_cut_linexpr(dv_array, nonzero_idx, sf, master_vars, constant, theta_var=None):
+    expr = LinExpr()
+    if theta_var is not None:
+        expr.addTerms([sf], [theta_var])
+    expr.addConstant(-constant * sf if theta_var is not None else constant * sf)
+    if len(nonzero_idx) > 0:
+        sign = -1.0 if theta_var is not None else 1.0
+        coefs = (dv_array[nonzero_idx] * sf * sign).tolist()
+        vars_list = [master_vars[i] for i in nonzero_idx]
+        expr.addTerms(coefs, vars_list)
+    return expr
+
+def add_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_path_probabilities, master_nonant_vars, theta_var, sp_to_master_idx):
     all_feasible = all(subproblem_feasibility.values())
 
     if all_feasible:
         constant_term = sum(subproblem_constants[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_probabilities)
-        aggregated_coeffs = defaultdict(float)
-        for sp_id, dv_dict in subproblem_dv_coefficients.items():
+        aggregated = np.zeros(len(master_nonant_vars))
+        for sp_id, dv_array in subproblem_dv_arrays.items():
             sp_prob = scenario_path_probabilities[sp_id]
-            for dv_name, dv_coef in dv_dict.items():
-                aggregated_coeffs[dv_name] += dv_coef * sp_prob
-        max_abs_coef = max((abs(v) for v in aggregated_coeffs.values()), default=0.0)
-        max_abs_value = max(abs(constant_term), max_abs_coef)
-        scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-        cut_expr = (master_var_cache["theta"] / scale_factor) - (constant_term / scale_factor) - quicksum((agg_coef / scale_factor) * master_var_cache[dv_name] for dv_name, agg_coef in aggregated_coeffs.items())
-        return cut_expr
+            np.add.at(aggregated, sp_to_master_idx[sp_id], dv_array * sp_prob)
+        nonzero_idx = np.nonzero(aggregated)[0]
+        sf = _compute_scale_factor(constant_term, aggregated, nonzero_idx)
+        return _build_cut_linexpr(aggregated, nonzero_idx, sf, master_nonant_vars, constant_term, theta_var)
     else:
         cut_exprs = []
         for sp_id, is_feasible in subproblem_feasibility.items():
             if not is_feasible:
                 constant = subproblem_constants[sp_id]
-                dv_dict = subproblem_dv_coefficients[sp_id]
-                max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
-                scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-                cut_expr = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
-                cut_exprs.append(cut_expr)
+                dv_array = subproblem_dv_arrays[sp_id]
+                nonzero_idx = np.nonzero(dv_array)[0]
+                master_idx = sp_to_master_idx[sp_id]
+                sf = _compute_scale_factor(constant, dv_array, nonzero_idx)
+                expr = LinExpr()
+                expr.addConstant(constant * sf)
+                if len(nonzero_idx) > 0:
+                    coefs = (dv_array[nonzero_idx] * sf).tolist()
+                    vars_list = [master_nonant_vars[master_idx[i]] for i in nonzero_idx]
+                    expr.addTerms(coefs, vars_list)
+                cut_exprs.append(expr)
         return cut_exprs
 
-def add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_paths, master_var_cache):
+def add_multiple_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_paths, master_nonant_vars_by_sp, theta_vars):
     cut_exprs = {}
     all_feasible = all(subproblem_feasibility.values())
 
     if all_feasible:
         for sp_id in scenario_paths:
-            theta_var = master_var_cache[f"theta[{sp_id}]"]
+            dv_array = subproblem_dv_arrays[sp_id]
             constant = subproblem_constants[sp_id]
-            dv_dict = subproblem_dv_coefficients[sp_id]
-            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
-            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-            cut_exprs[sp_id] = (theta_var / scale_factor) - (constant / scale_factor) - quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            nonzero_idx = np.nonzero(dv_array)[0]
+            sf = _compute_scale_factor(constant, dv_array, nonzero_idx)
+            cut_exprs[sp_id] = _build_cut_linexpr(dv_array, nonzero_idx, sf, master_nonant_vars_by_sp[sp_id], constant, theta_vars[sp_id])
     else:
         for sp_id, sub_feas in subproblem_feasibility.items():
             if not sub_feas:
                 constant = subproblem_constants[sp_id]
-                dv_dict = subproblem_dv_coefficients[sp_id]
-                max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
-                scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-                cut_exprs[sp_id] = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
-    
+                dv_array = subproblem_dv_arrays[sp_id]
+                nonzero_idx = np.nonzero(dv_array)[0]
+                sf = _compute_scale_factor(constant, dv_array, nonzero_idx)
+                cut_exprs[sp_id] = _build_cut_linexpr(dv_array, nonzero_idx, sf, master_nonant_vars_by_sp[sp_id], constant)
+
     return cut_exprs
 
-def add_multiple_cuts_2(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_paths, master_var_cache):
+def add_multiple_cuts_2(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_paths, master_nonant_vars_by_sp, theta_vars):
     cut_exprs = {}
     for sp_id in scenario_paths:
         constant = subproblem_constants[sp_id]
-        dv_dict = subproblem_dv_coefficients[sp_id]
+        dv_array = subproblem_dv_arrays[sp_id]
+        nonzero_idx = np.nonzero(dv_array)[0]
+        sf = _compute_scale_factor(constant, dv_array, nonzero_idx)
         if subproblem_feasibility[sp_id]:
-            theta_var = master_var_cache[f"theta[{sp_id}]"]
-            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
-            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-            cut_exprs[sp_id] = (theta_var / scale_factor) - (constant / scale_factor) - quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            cut_exprs[sp_id] = _build_cut_linexpr(dv_array, nonzero_idx, sf, master_nonant_vars_by_sp[sp_id], constant, theta_vars[sp_id])
         else:
-            max_abs_value = max(abs(constant), max(abs(c) for c in dv_dict.values()))
-            scale_factor = max_abs_value / 1e+06 if max_abs_value > 1e+06 else 1.0
-            cut_exprs[sp_id] = (constant / scale_factor) + quicksum((dv_coef / scale_factor) * master_var_cache[dv_name] for dv_name, dv_coef in dv_dict.items())
+            cut_exprs[sp_id] = _build_cut_linexpr(dv_array, nonzero_idx, sf, master_nonant_vars_by_sp[sp_id], constant)
 
     return cut_exprs
 
@@ -168,61 +160,69 @@ def minimum_sum_contiguous_subarray(array):
     
     return min_so_far, best_start + 1, best_end + 1
 
-def _build_electricity_cut(sp_id, sp_separation_data, elec_gen_coef_matrix, elec_gen_var_names, electricity_demand, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e, master_var_cache):
+def _build_electricity_cut(sp_id, sp_separation_data, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e):
     if min_sum_e + electricity_storage_const >= 0:
         return None, None
-    
-    electricity_demand_sum = np.sum(electricity_demand[q_lb_e - 1 : q_ub_e])
+
+    electricity_demand_sum = sp_separation_data['electricity_demand_cumsum'][q_ub_e] - sp_separation_data['electricity_demand_cumsum'][q_lb_e - 1]
     scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
     inv_scale = 1.0 / scale_factor
-    
-    summed_coefs = np.sum(elec_gen_coef_matrix[q_lb_e - 1 : q_ub_e], axis=0)
-    
-    cut_name = f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'
-    cut_expr = quicksum((summed_coefs[j] * inv_scale) * master_var_cache[elec_gen_var_names[j]] for j in range(len(elec_gen_var_names))) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum * inv_scale)
-    
-    return cut_name, cut_expr
 
-def _build_heat_cut(sp_id, sp_separation_data, heat_gen_coef_matrix, heat_gen_var_names, heat_demand, heat_storage_const, q_lb_h, q_ub_h, min_sum_h, master_var_cache):
+    summed_coefs = sp_separation_data['elec_coef_cumsum'][q_ub_e] - sp_separation_data['elec_coef_cumsum'][q_lb_e - 1]
+
+    cut_name = f'ValidInequality_Electricity_SP{sp_id}_q{q_lb_e}_{q_ub_e}'
+    expr = LinExpr()
+    expr.addTerms((summed_coefs * inv_scale).tolist(), sp_separation_data['elec_gen_vars'])
+    expr.addTerms((sp_separation_data['elec_storage_coefs'] * inv_scale).tolist(), sp_separation_data['elec_storage_vars'])
+    expr.addConstant(-electricity_demand_sum * inv_scale)
+
+    return cut_name, expr
+
+def _build_heat_cut(sp_id, sp_separation_data, heat_storage_const, q_lb_h, q_ub_h, min_sum_h):
     if min_sum_h + heat_storage_const >= 0:
         return None, None
-    
-    heat_demand_sum = np.sum(heat_demand[q_lb_h - 1 : q_ub_h])
+
+    heat_demand_sum = sp_separation_data['heat_demand_cumsum'][q_ub_h] - sp_separation_data['heat_demand_cumsum'][q_lb_h - 1]
     scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
     inv_scale = 1.0 / scale_factor
     num_subterms = q_ub_h - q_lb_h + 1
-    
-    summed_coefs = np.sum(heat_gen_coef_matrix[q_lb_h - 1 : q_ub_h], axis=0)
-    
-    cut_name = f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'
-    cut_expr = quicksum((summed_coefs[j] * inv_scale) * master_var_cache[heat_gen_var_names[j]] for j in range(len(heat_gen_var_names))) + quicksum((coeff * inv_scale) * num_subterms * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum * inv_scale)
-    
-    return cut_name, cut_expr
 
-def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
+    summed_coefs = sp_separation_data['heat_coef_cumsum'][q_ub_h] - sp_separation_data['heat_coef_cumsum'][q_lb_h - 1]
+
+    cut_name = f'ValidIneq_Heat_SP{sp_id}_q{q_lb_h}_{q_ub_h}'
+    expr = LinExpr()
+    expr.addTerms((summed_coefs * inv_scale).tolist(), sp_separation_data['heat_gen_vars'])
+    expr.addTerms((sp_separation_data['heat_transfer_coefs'] * inv_scale * num_subterms).tolist(), sp_separation_data['heat_transfer_vars'])
+    expr.addTerms((sp_separation_data['heat_storage_coefs'] * inv_scale).tolist(), sp_separation_data['heat_storage_vars'])
+    expr.addConstant(-heat_demand_sum * inv_scale)
+
+    return cut_name, expr
+
+def add_valid_inequalities(separation_data, subproblem_feasibility=None, callback_flag=False, master_model=None, initial_iteration=False, numSubterms=None, scenario_paths=None):
     cut_expressions = {}
 
     if initial_iteration:
         for sp_id in scenario_paths.keys():
             sp_separation_data = separation_data[sp_id]
-            electricity_demand = sp_separation_data['electricity_demand']
-            heat_demand = sp_separation_data['heat_demand']
-            elec_gen_coef_matrix = sp_separation_data['elec_gen_coef_matrix']
-            elec_gen_var_names = sp_separation_data['elec_gen_var_names']
-            heat_gen_coef_matrix = sp_separation_data['heat_gen_coef_matrix']
-            heat_gen_var_names = sp_separation_data['heat_gen_var_names']
 
-            electricity_demand_sum = np.sum(electricity_demand[:numSubterms])
-            scale_factor = electricity_demand_sum / 1e+06 if electricity_demand_sum > 1e+06 else 1.0
-            inv_scale = 1.0 / scale_factor
-            elec_summed_coefs = np.sum(elec_gen_coef_matrix[:numSubterms], axis=0)
-            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((elec_summed_coefs[j] * inv_scale) * master_var_cache[elec_gen_var_names[j]] for j in range(len(elec_gen_var_names))) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items()) - (electricity_demand_sum * inv_scale)
+            electricity_demand_sum = sp_separation_data['electricity_demand_cumsum'][numSubterms]
+            scale_factor = 1.0 / (electricity_demand_sum / 1e+06) if electricity_demand_sum > 1e+06 else 1.0
+            elec_summed_coefs = sp_separation_data['elec_coef_cumsum'][numSubterms]
+            expr_e = LinExpr()
+            expr_e.addTerms((elec_summed_coefs * scale_factor).tolist(), sp_separation_data['elec_gen_vars'])
+            expr_e.addTerms((sp_separation_data['elec_storage_coefs'] * scale_factor).tolist(), sp_separation_data['elec_storage_vars'])
+            expr_e.addConstant(-electricity_demand_sum * scale_factor)
+            cut_expressions[f'ValidInequality_Electricity_SP{sp_id}_q{1}_{numSubterms}'] = expr_e
 
-            heat_demand_sum = np.sum(heat_demand[:numSubterms])
-            scale_factor = heat_demand_sum / 1e+06 if heat_demand_sum > 1e+06 else 1.0
-            inv_scale = 1.0 / scale_factor
-            heat_summed_coefs = np.sum(heat_gen_coef_matrix[:numSubterms], axis=0)
-            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = quicksum((heat_summed_coefs[j] * inv_scale) * master_var_cache[heat_gen_var_names[j]] for j in range(len(heat_gen_var_names))) + quicksum((coeff * inv_scale) * numSubterms * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items()) + quicksum((coeff * inv_scale) * master_var_cache[dv_name] for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items()) - (heat_demand_sum * inv_scale)
+            heat_demand_sum = sp_separation_data['heat_demand_cumsum'][numSubterms]
+            scale_factor = 1.0 / (heat_demand_sum / 1e+06) if heat_demand_sum > 1e+06 else 1.0
+            heat_summed_coefs = sp_separation_data['heat_coef_cumsum'][numSubterms]
+            expr_h = LinExpr()
+            expr_h.addTerms((heat_summed_coefs * scale_factor).tolist(), sp_separation_data['heat_gen_vars'])
+            expr_h.addTerms((sp_separation_data['heat_transfer_coefs'] * scale_factor * numSubterms).tolist(), sp_separation_data['heat_transfer_vars'])
+            expr_h.addTerms((sp_separation_data['heat_storage_coefs'] * scale_factor).tolist(), sp_separation_data['heat_storage_vars'])
+            expr_h.addConstant(-heat_demand_sum * scale_factor)
+            cut_expressions[f'ValidIneq_Heat_SP{sp_id}_q{1}_{numSubterms}'] = expr_h
 
         return cut_expressions
 
@@ -234,22 +234,24 @@ def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibi
         electricity_demand = sp_separation_data['electricity_demand']
         heat_demand = sp_separation_data['heat_demand']
         elec_gen_coef_matrix = sp_separation_data['elec_gen_coef_matrix']
-        elec_gen_var_names = sp_separation_data['elec_gen_var_names']
         heat_gen_coef_matrix = sp_separation_data['heat_gen_coef_matrix']
-        heat_gen_var_names = sp_separation_data['heat_gen_var_names']
 
         if callback_flag:
-            elec_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in elec_gen_var_names])
-            heat_gen_vals = np.array([master_model.cbGetSolution(master_var_cache[v]) for v in heat_gen_var_names])
-            electricity_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
-            heat_transfer_per_subperiod = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
-            heat_storage_const = sum(coeff * master_model.cbGetSolution(master_var_cache[dv_name]) for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
+            elec_gen_vals = np.array(master_model.cbGetSolution(sp_separation_data['elec_gen_vars']))
+            heat_gen_vals = np.array(master_model.cbGetSolution(sp_separation_data['heat_gen_vars']))
+            elec_storage_vals = np.array(master_model.cbGetSolution(sp_separation_data['elec_storage_vars']))
+            heat_transfer_vals = np.array(master_model.cbGetSolution(sp_separation_data['heat_transfer_vars']))
+            heat_storage_vals = np.array(master_model.cbGetSolution(sp_separation_data['heat_storage_vars']))
         else:
-            elec_gen_vals = np.array([master_var_cache[v].X for v in elec_gen_var_names])
-            heat_gen_vals = np.array([master_var_cache[v].X for v in heat_gen_var_names])
-            electricity_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["electricitystoragetechNodeList"].items())
-            heat_transfer_per_subperiod = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heattransfertechNodeList"].items())
-            heat_storage_const = sum(coeff * master_var_cache[dv_name].X for dv_name, coeff in sp_separation_data["heatstoragetechNodeList"].items())
+            elec_gen_vals = np.array(master_model.getAttr('X', sp_separation_data['elec_gen_vars']))
+            heat_gen_vals = np.array(master_model.getAttr('X', sp_separation_data['heat_gen_vars']))
+            elec_storage_vals = np.array(master_model.getAttr('X', sp_separation_data['elec_storage_vars']))
+            heat_transfer_vals = np.array(master_model.getAttr('X', sp_separation_data['heat_transfer_vars']))
+            heat_storage_vals = np.array(master_model.getAttr('X', sp_separation_data['heat_storage_vars']))
+
+        electricity_storage_const = np.dot(sp_separation_data['elec_storage_coefs'], elec_storage_vals)
+        heat_transfer_per_subperiod = np.dot(sp_separation_data['heat_transfer_coefs'], heat_transfer_vals)
+        heat_storage_const = np.dot(sp_separation_data['heat_storage_coefs'], heat_storage_vals)
 
         electricity_contiguous_array = elec_gen_coef_matrix @ elec_gen_vals - electricity_demand
         heat_contiguous_array = (heat_gen_coef_matrix @ heat_gen_vals) + heat_transfer_per_subperiod - heat_demand
@@ -257,8 +259,8 @@ def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibi
         min_sum_e, q_lb_e, q_ub_e = minimum_sum_contiguous_subarray(np.ascontiguousarray(electricity_contiguous_array))
         min_sum_h, q_lb_h, q_ub_h = minimum_sum_contiguous_subarray(np.ascontiguousarray(heat_contiguous_array))
 
-        elec_cut_name, elec_cut_expr = _build_electricity_cut(sp_id, sp_separation_data, elec_gen_coef_matrix, elec_gen_var_names, electricity_demand, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e, master_var_cache)
-        heat_cut_name, heat_cut_expr = _build_heat_cut(sp_id, sp_separation_data, heat_gen_coef_matrix, heat_gen_var_names, heat_demand, heat_storage_const, q_lb_h, q_ub_h, min_sum_h, master_var_cache)
+        elec_cut_name, elec_cut_expr = _build_electricity_cut(sp_id, sp_separation_data, electricity_storage_const, q_lb_e, q_ub_e, min_sum_e)
+        heat_cut_name, heat_cut_expr = _build_heat_cut(sp_id, sp_separation_data, heat_storage_const, q_lb_h, q_ub_h, min_sum_h)
 
         if elec_cut_name is not None:
             cut_expressions[elec_cut_name] = elec_cut_expr
@@ -267,40 +269,40 @@ def add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibi
 
     return cut_expressions
 
-def write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag):
+def write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag, sp_nonant_names):
     lines = ['-' * 30, f"Iteration {iteration}:"]
-    
+
     all_feasible = all(subproblem_feasibility.values())
+
+    def _format_coefs(sp_id):
+        dv_array = subproblem_dv_arrays[sp_id]
+        names = sp_nonant_names[sp_id]
+        parts = []
+        for i, coef in enumerate(dv_array):
+            if abs(coef) > 1e-6:
+                sign = '+' if coef >= 0 else '-'
+                parts.append(f" {sign} {abs(coef):.3f} * {names[i]}")
+        return ''.join(parts)
 
     if multi_cut_flag:
         if all_feasible:
             for sp_id in scenario_path_probabilities.keys():
-                parts = [f"theta[{sp_id}] >= {subproblem_constants[sp_id]:.3f}"]
-                for dv_name, dv_coef in subproblem_dv_coefficients[sp_id].items():
-                    if abs(dv_coef) > 1e-6:
-                        sign = '+' if dv_coef >= 0 else '-'
-                        parts.append(f" {sign} {abs(dv_coef):.3f} * {dv_name}")
-                lines.append(''.join(parts))
+                lines.append(f"theta[{sp_id}] >= {subproblem_constants[sp_id]:.3f}" + _format_coefs(sp_id))
         else:
             for sp_id, is_feasible in subproblem_feasibility.items():
                 if not is_feasible:
-                    parts = [f"0 <= {subproblem_constants[sp_id]:.3f}"]
-                    for dv_name, dv_coef in subproblem_dv_coefficients[sp_id].items():
-                        if abs(dv_coef) > 1e-6:
-                            sign = '+' if dv_coef >= 0 else '-'
-                            parts.append(f" {sign} {abs(dv_coef):.3f} * {dv_name}")
-                    lines.append(''.join(parts))
+                    lines.append(f"0 <= {subproblem_constants[sp_id]:.3f}" + _format_coefs(sp_id))
     else:
         if all_feasible:
             constant_term = sum(subproblem_constants[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_probabilities.keys())
             parts = [f"theta >= {constant_term:.3f}"]
-            
             aggregated_coeffs = {}
-            for sp_id, dv_dict in subproblem_dv_coefficients.items():
+            for sp_id, dv_array in subproblem_dv_arrays.items():
                 sp_prob = scenario_path_probabilities[sp_id]
-                for dv_name, dv_coef in dv_dict.items():
-                    aggregated_coeffs[dv_name] = aggregated_coeffs.get(dv_name, 0.0) + dv_coef * sp_prob
-            
+                for i, coef in enumerate(dv_array):
+                    if abs(coef) > 1e-6:
+                        name = sp_nonant_names[sp_id][i]
+                        aggregated_coeffs[name] = aggregated_coeffs.get(name, 0.0) + coef * sp_prob
             for dv_name, coef in aggregated_coeffs.items():
                 if abs(coef) > 1e-6:
                     sign = '+' if coef >= 0 else '-'
@@ -309,13 +311,8 @@ def write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coeffic
         else:
             for sp_id, is_feasible in subproblem_feasibility.items():
                 if not is_feasible:
-                    parts = [f"0 <= {subproblem_constants[sp_id]:.3f}"]
-                    for dv_name, dv_coef in subproblem_dv_coefficients[sp_id].items():
-                        if abs(dv_coef) > 1e-6:
-                            sign = '+' if dv_coef >= 0 else '-'
-                            parts.append(f" {sign} {abs(dv_coef):.3f} * {dv_name}")
-                    lines.append(f"SP{sp_id}: " + ''.join(parts))
-    
+                    lines.append(f"SP{sp_id}: 0 <= {subproblem_constants[sp_id]:.3f}" + _format_coefs(sp_id))
+
     cuts_file.write('\n'.join(lines) + '\n')
     cuts_file.flush()
 
@@ -338,6 +335,14 @@ def get_leaf_node_solution(leaf_node_id, leaf_parent_node_id, numStages, numSubp
     h_carry_var = _worker_model.getVarByName(f'heatcarry_{leaf_parent_node_id}{target_index}')
     
     return leaf_vars, (e_carry_var.varName, e_carry_var.X), (h_carry_var.varName, h_carry_var.X)
+
+def get_all_subproblem_solution():
+    _worker_model = _cached_worker_model
+    all_vars = {}
+    for var in _worker_model.getVars():
+        if not var.varName.startswith('plus_'):
+            all_vars[var.varName] = var.X
+    return all_vars
 
 def write_final_subproblem_solutions(executors, nonanticipativity_lookup, results_directory, scenario_paths, numStages, numSubperiods, numSubterms):
     futures = {sp_id: executors[sp_id].submit(solve_subproblem, nonanticipativity_lookup) for sp_id in scenario_paths.keys()}
@@ -397,27 +402,26 @@ def benders_callback(model, where):
 
         subproblem_objectives = {}
         subproblem_constants = {}
-        subproblem_dv_coefficients = {}
+        subproblem_dv_arrays = {}
         subproblem_feasibility = {}
         subproblem_statuses = {}
         for sp_id, result in subproblem_results.items():
             subproblem_objectives[sp_id] = result[0]
             subproblem_constants[sp_id] = result[1]
-            subproblem_dv_coefficients[sp_id] = result[2]
+            subproblem_dv_arrays[sp_id] = result[2]
             subproblem_feasibility[sp_id] = result[3]
             subproblem_statuses[sp_id] = result[4]
-        
+
         unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
         if unexpected_statuses:
             with open(os.path.join(call_back_data['results_directory'], 'SubproblemStatusLog.txt'), 'a') as status_file:
                 for sp_id, status in unexpected_statuses:
                     status_file.write(f"Iteration {call_back_data['iteration']}: Subproblem {sp_id} status: {status}\n")
-        
+
         all_feasible = all(subproblem_feasibility.values())
-        
+
         if call_back_data['multi_cut_flag']:
-            if 'theta_vars' not in call_back_data:
-                call_back_data['theta_vars'] = {sp_id: call_back_data['master_var_cache'][f"theta[{sp_id}]"] for sp_id in call_back_data['scenario_paths'].keys()}
+            if 'theta_vars_list' not in call_back_data:
                 call_back_data['theta_vars_list'] = list(call_back_data['theta_vars'].values())
                 call_back_data['scenario_path_keys'] = list(call_back_data['scenario_paths'].keys())
             theta_values = model.cbGetSolution(call_back_data['theta_vars_list'])
@@ -426,18 +430,18 @@ def benders_callback(model, where):
             theta_sum = sum(tv * scenario_path_probabilities[sp_id] for tv, sp_id in zip(theta_values, scenario_path_keys))
             subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_keys)
             upper_bound = current_obj - theta_sum + subproblem_obj_sum
-            cut_expressions = add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, call_back_data['scenario_paths'], call_back_data['master_var_cache'])
+            cut_expressions = add_multiple_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, call_back_data['scenario_paths'], call_back_data['master_nonant_vars_by_sp'], call_back_data['theta_vars'])
             for cut_expression in cut_expressions.values():
                 model.cbLazy(cut_expression >= 0)
         else:
             if 'theta_var' not in call_back_data:
-                call_back_data['theta_var'] = call_back_data['master_var_cache']["theta"]
+                call_back_data['theta_var'] = call_back_data['theta_var_single']
                 call_back_data['scenario_path_keys'] = list(call_back_data['scenario_paths'].keys())
             scenario_path_probabilities = call_back_data['scenario_path_probabilities']
             scenario_path_keys = call_back_data['scenario_path_keys']
             subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_keys)
             upper_bound = current_obj - model.cbGetSolution(call_back_data['theta_var']) + subproblem_obj_sum
-            cut_expressions = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, call_back_data['master_var_cache'])
+            cut_expressions = add_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_path_probabilities, call_back_data['nonant_vars'], call_back_data['theta_var_single'], call_back_data['sp_to_master_idx'])
             if isinstance(cut_expressions, list):
                 for cut_expression in cut_expressions:
                     model.cbLazy(cut_expression >= 0)
@@ -447,7 +451,7 @@ def benders_callback(model, where):
         valid_inequality_derivation_time = 0
         if not all_feasible and call_back_data['valid_inequalities_flag']:
             valid_inequality_start_time = time.time()
-            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['separation_data'], call_back_data['master_var_cache'], subproblem_feasibility=subproblem_feasibility, callback_flag=True, master_model=model)
+            valid_ineq_cut_expressions = add_valid_inequalities(call_back_data['separation_data'], subproblem_feasibility=subproblem_feasibility, callback_flag=True, master_model=model)
             for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                 model.cbLazy(cut_expression >= 0)
             valid_inequality_derivation_time = time.time() - valid_inequality_start_time
@@ -465,7 +469,7 @@ def benders_callback(model, where):
                 call_back_data['valid_inequalities_added'] += len(valid_ineq_cut_expressions)
 
             if call_back_data['cuts_file']:
-                write_cuts(call_back_data['cuts_file'], call_back_data['iteration'], subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, call_back_data['scenario_path_probabilities'], call_back_data['multi_cut_flag'])
+                write_cuts(call_back_data['cuts_file'], call_back_data['iteration'], subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, call_back_data['scenario_path_probabilities'], call_back_data['multi_cut_flag'], call_back_data['sp_nonant_names'])
 
             if all_feasible and upper_bound < call_back_data['best_upper_bound']:
                 call_back_data['best_upper_bound'] = upper_bound
@@ -499,10 +503,11 @@ def benders_callback(model, where):
             if gap < call_back_data['tolerance']:
                 model.terminate()
 
-def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initial_tech, emission_limits, electricity_demand, heat_demand, 
-                      budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, log_file, discount_factor, scenario_paths, 
-                      scenario_path_probabilities, tolerance, benders_without_feasibility_flag, aggregated_subproblems_flag, multi_cut_flag, 
-                      callback_flag, write_cuts_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution):
+def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initial_tech, emission_limits, electricity_demand, 
+                      heat_demand, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, log_file, 
+                      discount_factor, scenario_paths, scenario_path_probabilities, tolerance, benders_without_feasibility_flag, 
+                      aggregated_subproblems_flag, multi_cut_flag, callback_flag, write_cuts_flag, continuous_flag, 
+                      valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution, incumbent_solve=False):
     
     if benders_without_feasibility_flag:
         from benders_model_feas import MasterProblemModel, SubProblemModel, OperationalNonanticipativityModel
@@ -527,8 +532,34 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
     nonant_var_names = [var.varName for var in nonant_vars]
     master_var_cache = {var.varName: var for var in master_model.getVars()}
 
+    sp_nonant_names = {}
+    master_nonant_vars_by_sp = {}
+    sp_to_master_idx = {}
+    master_nonant_name_to_idx = {name: i for i, name in enumerate(nonant_var_names)}
+    for sp_id in scenario_paths:
+        sp_names = executors[sp_id].submit(get_nonant_var_names).result()
+        sp_nonant_names[sp_id] = sp_names
+        master_nonant_vars_by_sp[sp_id] = [master_var_cache[name] for name in sp_names]
+        sp_to_master_idx[sp_id] = [master_nonant_name_to_idx[name] for name in sp_names]
+
+    if multi_cut_flag:
+        theta_vars = {sp_id: master_var_cache[f"theta[{sp_id}]"] for sp_id in scenario_paths}
+    else:
+        theta_var_single = master_var_cache["theta"]
+
+    if separation_data is not None:
+        for path_id, sp_data in separation_data.items():
+            sp_data['elec_gen_vars'] = [master_var_cache[n] for n in sp_data['elec_gen_var_names']]
+            sp_data['heat_gen_vars'] = [master_var_cache[n] for n in sp_data['heat_gen_var_names']]
+            sp_data['elec_storage_vars'] = [master_var_cache[n] for n in sp_data['elec_storage_var_names']]
+            sp_data['heat_storage_vars'] = [master_var_cache[n] for n in sp_data['heat_storage_var_names']]
+            sp_data['heat_transfer_vars'] = [master_var_cache[n] for n in sp_data['heat_transfer_var_names']]
+            sp_data['elec_storage_coefs'] = np.array(sp_data['elec_storage_coefs'], dtype=np.float64)
+            sp_data['heat_storage_coefs'] = np.array(sp_data['heat_storage_coefs'], dtype=np.float64)
+            sp_data['heat_transfer_coefs'] = np.array(sp_data['heat_transfer_coefs'], dtype=np.float64)
+
     if valid_inequalities_flag:
-        valid_ineq_cut_expressions = add_valid_inequalities(separation_data, master_var_cache, initial_iteration=True, numSubterms=numSubterms, scenario_paths=scenario_paths)
+        valid_ineq_cut_expressions = add_valid_inequalities(separation_data, initial_iteration=True, numSubterms=numSubterms, scenario_paths=scenario_paths)
         for cut_name, cut_expression in valid_ineq_cut_expressions.items():
             master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{0}')
 
@@ -543,29 +574,29 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
 
     if incumbent_solution is not None:
         futures = {sp_id: executors[sp_id].submit(solve_subproblem, incumbent_solution) for sp_id in scenario_paths.keys()}
-        
+
         incumbent_sp_results = {sp_id: future.result() for sp_id, future in futures.items()}
         incumbent_sp_constants = {sp_id: result[1] for sp_id, result in incumbent_sp_results.items()}
-        incumbent_sp_dv_coefficients = {sp_id: result[2] for sp_id, result in incumbent_sp_results.items()}
+        incumbent_sp_dv_arrays = {sp_id: result[2] for sp_id, result in incumbent_sp_results.items()}
         incumbent_sp_feasibility = {sp_id: result[3] for sp_id, result in incumbent_sp_results.items()}
-        
+
         all_incumbent_feasible = all(incumbent_sp_feasibility.values())
-        
-        if all_incumbent_feasible:            
+
+        if all_incumbent_feasible:
             if multi_cut_flag:
-                cut_expressions = add_multiple_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_paths, master_var_cache)
+                cut_expressions = add_multiple_cuts(incumbent_sp_constants, incumbent_sp_dv_arrays, incumbent_sp_feasibility, scenario_paths, master_nonant_vars_by_sp, theta_vars)
                 for sp_id, cut_expression in cut_expressions.items():
                     master_model.addConstr(cut_expression >= 0, name=f"incumbent_opt_cut_{sp_id}")
             else:
-                cut_expressions = add_cuts(incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_path_probabilities, master_var_cache)
+                cut_expressions = add_cuts(incumbent_sp_constants, incumbent_sp_dv_arrays, incumbent_sp_feasibility, scenario_path_probabilities, nonant_vars, theta_var_single, sp_to_master_idx)
                 master_model.addConstr(cut_expressions >= 0, name="incumbent_opt_cut")
-            
+
             master_model.update()
-            
+
             log_file.write(f"Incumbent solution is feasible\n")
-            
+
             if write_cuts_flag:
-                write_cuts(cuts_file, 0, incumbent_sp_constants, incumbent_sp_dv_coefficients, incumbent_sp_feasibility, scenario_path_probabilities, multi_cut_flag)
+                write_cuts(cuts_file, 0, incumbent_sp_constants, incumbent_sp_dv_arrays, incumbent_sp_feasibility, scenario_path_probabilities, multi_cut_flag, sp_nonant_names)
 
         log_file.flush()
 
@@ -587,7 +618,11 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             'best_ub_lookup': None,
             'nonant_vars': nonant_vars,
             'nonant_var_names': nonant_var_names,
-            'master_var_cache': master_var_cache,
+            'master_nonant_vars_by_sp': master_nonant_vars_by_sp,
+            'sp_to_master_idx': sp_to_master_idx,
+            'sp_nonant_names': sp_nonant_names,
+            'theta_vars': theta_vars if multi_cut_flag else None,
+            'theta_var_single': theta_var_single if not multi_cut_flag else None,
             'continuous_flag': continuous_flag,
             'valid_inequalities_flag': valid_inequalities_flag,
             'separation_data': separation_data,
@@ -649,16 +684,16 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
 
             subproblem_objectives = {}
             subproblem_constants = {}
-            subproblem_dv_coefficients = {}
+            subproblem_dv_arrays = {}
             subproblem_feasibility = {}
             subproblem_statuses = {}
             for sp_id, result in subproblem_results.items():
                 subproblem_objectives[sp_id] = result[0]
                 subproblem_constants[sp_id] = result[1]
-                subproblem_dv_coefficients[sp_id] = result[2]
+                subproblem_dv_arrays[sp_id] = result[2]
                 subproblem_feasibility[sp_id] = result[3]
                 subproblem_statuses[sp_id] = result[4]
-            
+
             unexpected_statuses = [(sp_id, status) for sp_id, status in subproblem_statuses.items() if status != GRB.OPTIMAL and status != GRB.INFEASIBLE]
             if unexpected_statuses:
                 with open(os.path.join(results_directory, 'SubproblemStatusLog.txt'), 'a') as status_file:
@@ -673,15 +708,17 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                 feasibility_cut_iterations += 1
 
             if multi_cut_flag:
-                upper_bound = master_model.ObjVal - sum([master_var_cache[f"theta[{sp_id}]"].X * sp_prob for sp_id, sp_prob in scenario_path_probabilities.items()]) + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
-                cut_expressions = add_multiple_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_paths, master_var_cache)
+                theta_values = master_model.getAttr('X', list(theta_vars.values()))
+                theta_sum = sum(tv * sp_prob for tv, sp_prob in zip(theta_values, scenario_path_probabilities.values()))
+                upper_bound = master_model.ObjVal - theta_sum + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
+                cut_expressions = add_multiple_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_paths, master_nonant_vars_by_sp, theta_vars)
                 for sp_id, cut_expression in cut_expressions.items():
                     cut_name = f'OptimalityCut{sp_id}_{iteration}' if all_feasible else f'FeasibilityCut{sp_id}_{iteration}'
                     master_model.addConstr(cut_expression >= 0, name=cut_name)
             else:
-                upper_bound = master_model.ObjVal - master_var_cache["theta"].X + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
-                cut_expressions = add_cuts(subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, master_var_cache)
-                
+                upper_bound = master_model.ObjVal - theta_var_single.X + sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_paths.keys())
+                cut_expressions = add_cuts(subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_path_probabilities, nonant_vars, theta_var_single, sp_to_master_idx)
+
                 if isinstance(cut_expressions, list):
                     for idx, cut_expression in enumerate(cut_expressions):
                         master_model.addConstr(cut_expression >= 0, name=f'FeasibilityCut_{iteration}_{idx}')
@@ -692,7 +729,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
             valid_ineq_cut_expressions = None
             if not all_feasible and valid_inequalities_flag:
                 valid_inequality_start_time = time.time()
-                valid_ineq_cut_expressions = add_valid_inequalities(separation_data, master_var_cache, subproblem_feasibility=subproblem_feasibility)
+                valid_ineq_cut_expressions = add_valid_inequalities(separation_data, subproblem_feasibility=subproblem_feasibility, master_model=master_model)
                 for cut_name, cut_expression in valid_ineq_cut_expressions.items():
                     master_model.addConstr(cut_expression >= 0, name=f'{cut_name}_{iteration}')
                 valid_inequality_derivation_time = time.time() - valid_inequality_start_time
@@ -700,20 +737,18 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                 valid_inequalities_added += len(valid_ineq_cut_expressions)
 
             if cuts_file:
-                write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag)
-                
+                write_cuts(cuts_file, iteration, subproblem_constants, subproblem_dv_arrays, subproblem_feasibility, scenario_path_probabilities, multi_cut_flag, sp_nonant_names)
+
                 if not all_feasible and valid_inequalities_flag and valid_ineq_cut_expressions:
                     cuts_file.write("Valid Inequalities:\n")
                     for ineq_name in valid_ineq_cut_expressions.keys():
                         cuts_file.write(f"  {ineq_name}\n")
                     cuts_file.flush()
 
-            current_cut_data = (subproblem_constants, subproblem_dv_coefficients, subproblem_feasibility)
+            current_cut_data = (subproblem_constants, subproblem_dv_arrays, subproblem_feasibility)
             if previous_cut_data is not None and not continuous_flag:
-                prev_constants, prev_dv_coefficients, prev_feasibility = previous_cut_data
-                if (subproblem_constants == prev_constants and 
-                    subproblem_dv_coefficients == prev_dv_coefficients and 
-                    subproblem_feasibility == prev_feasibility):
+                prev_constants, prev_dv_arrays, prev_feasibility = previous_cut_data
+                if (subproblem_constants == prev_constants and subproblem_feasibility == prev_feasibility and all(np.array_equal(subproblem_dv_arrays[sp_id], prev_dv_arrays[sp_id]) for sp_id in subproblem_dv_arrays)):
                     current_mipgap = master_model.Params.MIPGap
                     new_mipgap = float(current_mipgap) * 0.5
                     master_model.setParam('MIPGap', new_mipgap)
@@ -773,14 +808,35 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
     
     if cuts_file:
         cuts_file.close()
-    
+
+    if incumbent_solve:
+        futures = {sp_id: executors[sp_id].submit(solve_subproblem, best_ub_lookup) for sp_id in scenario_paths.keys()}
+        for future in futures.values():
+            future.result()
+
+        solution_dict = best_ub_lookup.copy()
+        for _, executor in executors.items():
+            future = executor.submit(get_all_subproblem_solution)
+            sub_vars = future.result()
+            for var_name, var_value in sub_vars.items():
+                if var_name not in solution_dict:
+                    solution_dict[var_name] = var_value
+
+        master_model.dispose()
+        master_env.dispose()
+
+        for executor in executors.values():
+            executor.shutdown(wait=True)
+
+        return solution_dict
+
     final_sol_file = os.path.join(results_directory, 'Results.sol')
     with open(final_sol_file, 'w') as f:
         for var_name, var_value in best_ub_lookup.items():
             f.write(f"{var_name} {var_value}\n")
-    
+
     electricity_carry_values, heat_carry_values = write_final_subproblem_solutions(executors, best_ub_lookup, results_directory, scenario_paths, numStages, numSubperiods, numSubterms)
-    
+
     for executor in executors.values():
         executor.shutdown(wait=True)
 
@@ -796,7 +852,7 @@ def CampusApplication(numStages, numSubperiods, numSubterms, scenarioTree, initi
                 if var is not None:
                     vars_to_fix.append(var)
                     bounds.append(var_value)
-        
+
         operational_model.setAttr('LB', vars_to_fix, bounds)
         operational_model.setAttr('UB', vars_to_fix, bounds)
 

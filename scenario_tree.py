@@ -1,4 +1,5 @@
 import itertools
+import numpy as np
 
 class ScenarioTree:
     def __init__(self, technologyTrees, benders_without_feasibility_flag, mssp_flag=False, dispatch_flag=False):
@@ -58,13 +59,13 @@ class TechnologyTree:
         self.electricity_storage_capacity = electricity_storage_capacity
         self.heat_storage_capacity = heat_storage_capacity
         self.heat_transfer_capacity = heat_transfer_capacity
-        self.periodic_heat_transfer_cop = periodic_heat_transfer_cop
+        self.periodic_heat_transfer_cop = np.array(periodic_heat_transfer_cop) if periodic_heat_transfer_cop is not None else None
         self.storage_charging_efficiency = storage_charging_efficiency
         self.storage_discharging_efficiency = storage_discharging_efficiency
         self.storage_self_discharge_rate = storage_self_discharge_rate
         self.periodic_electricity_generation_std = periodic_electricity_generation_std
         self.periodic_heat_generation_std = periodic_heat_generation_std
-        self.periodic_heat_transfer_cop_std = periodic_heat_transfer_cop_std
+        self.periodic_heat_transfer_cop_std = np.array(periodic_heat_transfer_cop_std) if periodic_heat_transfer_cop_std is not None else None
         self.nodes = []
         self.degradation_rate = degradation_rate
         self.initialOMcost = initialOMcost
@@ -114,12 +115,12 @@ class TechnologyNode:
         self.NumVersion = versionnum_In
         self.cost = cost_In
         self.lifetime = lifetime_In
-        self.periodic_electricity = periodic_electricity_In
-        self.periodic_heat = periodic_heat_In
+        self.periodic_electricity = np.array(periodic_electricity_In) if periodic_electricity_In is not None else None
+        self.periodic_heat = np.array(periodic_heat_In) if periodic_heat_In is not None else None
         self.electricity_storage_capacity = electricity_storage_capacity_In
         self.heat_storage_capacity = heat_storage_capacity_In
         self.heat_transfer_capacity = heat_transfer_capacity_In
-        self.periodic_heat_transfer_cop = periodic_heat_transfer_cop_In
+        self.periodic_heat_transfer_cop = np.array(periodic_heat_transfer_cop_In) if periodic_heat_transfer_cop_In is not None else None
         self.storage_charging_efficiency = storage_charging_efficiency_In
         self.storage_discharging_efficiency = storage_discharging_efficiency_In
         self.storage_self_discharge_rate = storage_self_discharge_rate_In
@@ -128,12 +129,12 @@ class TechnologyNode:
         self.OMcostchangebyyear = OMcostchangebyyear_In
         self.depreciation_rate = depreciation_In
         self.spatial_requirement = spatial_requirement_In
-        self.periodic_electricity_std = periodic_electricity_std_In
-        self.periodic_heat_std = periodic_heat_std_In
-        self.periodic_heat_transfer_cop_std = periodic_heat_transfer_cop_std_In
+        self.periodic_electricity_std = np.array(periodic_electricity_std_In) if periodic_electricity_std_In is not None else None
+        self.periodic_heat_std = np.array(periodic_heat_std_In) if periodic_heat_std_In is not None else None
+        self.periodic_heat_transfer_cop_std = np.array(periodic_heat_transfer_cop_std_In) if periodic_heat_transfer_cop_std_In is not None else None
 
     def AddChild(self, prob, costMult, effMult):
-        child = TechnologyNode(len(self.tree.nodes), self, prob, self.tree, self.NumVersion, [i*costMult for i in self.cost], ([[x*effMult for x in i] for i in self.periodic_electricity] if self.periodic_electricity is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat] if self.periodic_heat is not None else None), ([i*effMult for i in self.electricity_storage_capacity] if self.electricity_storage_capacity is not None else None), ([i*effMult for i in self.heat_storage_capacity] if self.heat_storage_capacity is not None else None), ([i for i in self.heat_transfer_capacity] if self.heat_transfer_capacity is not None else None), ([[x*(1 + (self.stage * effMult)) for x in i] for i in self.tree.periodic_heat_transfer_cop] if self.tree.periodic_heat_transfer_cop is not None else None), self.storage_charging_efficiency, self.storage_discharging_efficiency, self.storage_self_discharge_rate, self.lifetime, self.degradation_rate, self.OMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement, ([[x*effMult for x in i] for i in self.periodic_electricity_std] if self.periodic_electricity_std is not None else None), ([[x*effMult for x in i] for i in self.periodic_heat_std] if self.periodic_heat_std is not None else None), ([[x*(1 + (self.stage * effMult)) for x in i] for i in self.tree.periodic_heat_transfer_cop_std] if self.tree.periodic_heat_transfer_cop_std is not None else None))
+        child = TechnologyNode(len(self.tree.nodes), self, prob, self.tree, self.NumVersion, [i*costMult for i in self.cost], self.periodic_electricity * effMult if self.periodic_electricity is not None else None, self.periodic_heat * effMult if self.periodic_heat is not None else None, [i*effMult for i in self.electricity_storage_capacity] if self.electricity_storage_capacity is not None else None, [i*effMult for i in self.heat_storage_capacity] if self.heat_storage_capacity is not None else None, list(self.heat_transfer_capacity) if self.heat_transfer_capacity is not None else None, self.tree.periodic_heat_transfer_cop * (1 + (self.stage * effMult)) if self.tree.periodic_heat_transfer_cop is not None else None, self.storage_charging_efficiency, self.storage_discharging_efficiency, self.storage_self_discharge_rate, self.lifetime, self.degradation_rate, self.OMcost, self.depreciation_rate, self.OMcostchangebyyear, self.spatial_requirement, self.periodic_electricity_std * effMult if self.periodic_electricity_std is not None else None, self.periodic_heat_std * effMult if self.periodic_heat_std is not None else None, self.tree.periodic_heat_transfer_cop_std * (1 + (self.stage * effMult)) if self.tree.periodic_heat_transfer_cop_std is not None else None)
         self.children.append(child)
 
 def extract_dataframe_parameters(df, row_index):

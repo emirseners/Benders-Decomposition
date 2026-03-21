@@ -141,7 +141,7 @@ class ScenarioNode:
 
     def AddEmissionConstraints(self, model, emission_limits):
         for t in self.stageSubperiods:
-            if emission_limits[t] != None:
+            if emission_limits[t] is not None:
                 model.addConstr(quicksum(self.e_Purchase[t,p] + self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t], name = f'N{self.id}_Emission_{t}')
 
     def AddBudgetConstraints(self, model, budget):
@@ -174,23 +174,33 @@ class ScenarioNode:
 
     def ComputeSeparationData(self):
         t_ = self.stageSubperiods[-1]
-        separation_data = {"electricitystoragetechNodeList": {}, "heatstoragetechNodeList": {}, "heattransfertechNodeList": {}}
+        separation_data = {}
 
+        elec_storage_var_names = []
+        elec_storage_coefs = []
         for i, tech in enumerate(self.electricitystoragetechNodeList):
             for v in range(tech.NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.electricitystoragetechNodeList[i].lifetime[v]:
                         coeff = self.electricitystoragetechNodeList[0].storage_discharging_efficiency[0] * self.electricitystoragetechNodeList[0].storage_self_discharge_rate[0] * ancestor.electricitystoragetechNodeList[i].electricity_storage_capacity[v] * (1 - (ancestor.electricitystoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
-                        separation_data["electricitystoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
+                        elec_storage_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
+                        elec_storage_coefs.append(coeff)
+        separation_data['elec_storage_var_names'] = elec_storage_var_names
+        separation_data['elec_storage_coefs'] = elec_storage_coefs
 
+        heat_storage_var_names = []
+        heat_storage_coefs = []
         for i, tech in enumerate(self.heatstoragetechNodeList):
             for v in range(tech.NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.heatstoragetechNodeList[i].lifetime[v]:
                         coeff = self.heatstoragetechNodeList[0].storage_discharging_efficiency[0] * self.heatstoragetechNodeList[0].storage_self_discharge_rate[0] * ancestor.heatstoragetechNodeList[i].heat_storage_capacity[v] * (1 - (ancestor.heatstoragetechNodeList[i].degradation_rate[v] * (t_ - t)))
-                        separation_data["heatstoragetechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
+                        heat_storage_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
+                        heat_storage_coefs.append(coeff)
+        separation_data['heat_storage_var_names'] = heat_storage_var_names
+        separation_data['heat_storage_coefs'] = heat_storage_coefs
 
         elec_gen_var_names = []
         elec_gen_coef_lists = []
@@ -199,9 +209,13 @@ class ScenarioNode:
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.electricitygenerationtechNodeList[i].lifetime[v]:
-                        coeff_array = np.array(ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v]) * (1.0 - (ancestor.electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        coeff_array = ancestor.electricitygenerationtechNodeList[i].periodic_electricity[v] * (1.0 - (ancestor.electricitygenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
                         elec_gen_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
                         elec_gen_coef_lists.append(coeff_array)
+        elec_gen_coef_matrix = np.column_stack(elec_gen_coef_lists)
+        separation_data['elec_gen_coef_matrix'] = elec_gen_coef_matrix
+        separation_data['elec_coef_cumsum'] = np.vstack([np.zeros((1, elec_gen_coef_matrix.shape[1])), np.cumsum(elec_gen_coef_matrix, axis=0)])
+        separation_data['elec_gen_var_names'] = elec_gen_var_names
 
         heat_gen_var_names = []
         heat_gen_coef_lists = []
@@ -210,22 +224,26 @@ class ScenarioNode:
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.heatgenerationtechNodeList[i].lifetime[v]:
-                        coeff_array = np.array(ancestor.heatgenerationtechNodeList[i].periodic_heat[v]) * (1.0 - (ancestor.heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
+                        coeff_array = ancestor.heatgenerationtechNodeList[i].periodic_heat[v] * (1.0 - (ancestor.heatgenerationtechNodeList[i].degradation_rate[v] * (t_ - t)))
                         heat_gen_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
                         heat_gen_coef_lists.append(coeff_array)
+        heat_gen_coef_matrix = np.column_stack(heat_gen_coef_lists)
+        separation_data['heat_gen_coef_matrix'] = heat_gen_coef_matrix
+        separation_data['heat_coef_cumsum'] = np.vstack([np.zeros((1, heat_gen_coef_matrix.shape[1])), np.cumsum(heat_gen_coef_matrix, axis=0)])
+        separation_data['heat_gen_var_names'] = heat_gen_var_names
 
+        heat_transfer_var_names = []
+        heat_transfer_coefs = []
         for i, tech in enumerate(self.heattransfertechNodeList):
             for v in range(self.heattransfertechNodeList[i].NumVersion):
                 for t in range(0, t_ + 1):
                     ancestor = self.FindAncestorFromDiff(t, t_)
                     if t <= t_ < t + ancestor.heattransfertechNodeList[i].lifetime[v]:
                         coeff = ancestor.heattransfertechNodeList[i].heat_transfer_capacity[v] * (1 - (ancestor.heattransfertechNodeList[i].degradation_rate[v] * (t_ - t)))
-                        separation_data["heattransfertechNodeList"][f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]"] = coeff
-
-        separation_data['elec_gen_coef_matrix'] = np.column_stack(elec_gen_coef_lists)
-        separation_data['elec_gen_var_names'] = elec_gen_var_names
-        separation_data['heat_gen_coef_matrix'] = np.column_stack(heat_gen_coef_lists)
-        separation_data['heat_gen_var_names'] = heat_gen_var_names
+                        heat_transfer_var_names.append(f"plus_{ancestor.id}[" + tech.tree.type + f",{v},{t}]")
+                        heat_transfer_coefs.append(coeff)
+        separation_data['heat_transfer_var_names'] = heat_transfer_var_names
+        separation_data['heat_transfer_coefs'] = heat_transfer_coefs
 
         return separation_data
 
@@ -247,12 +265,19 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     separation_data = None
     if valid_inequalities_flag:
         separation_data = {}
+        elec_demand_val = np.array(electricity_demand[-1], dtype=np.float64)
+        heat_demand_val = np.array(heat_demand[-1], dtype=np.float64)
+        elec_demand_cumsum = np.concatenate(([0], np.cumsum(elec_demand_val)))
+        heat_demand_cumsum = np.concatenate(([0], np.cumsum(heat_demand_val)))
+        
         for node in scenarioTree.nodes:
             if len(node.children) == 0:
                 path_id = next(path_id for path_id, scenario_nodes in scenario_paths.items() if node.id in scenario_nodes)
                 separation_data[path_id] = node.ComputeSeparationData()
-                separation_data[path_id]['electricity_demand'] = np.array(electricity_demand[-1], dtype=np.float64)
-                separation_data[path_id]['heat_demand'] = np.array(heat_demand[-1], dtype=np.float64)
+                separation_data[path_id]['electricity_demand'] = elec_demand_val
+                separation_data[path_id]['heat_demand'] = heat_demand_val
+                separation_data[path_id]['electricity_demand_cumsum'] = elec_demand_cumsum
+                separation_data[path_id]['heat_demand_cumsum'] = heat_demand_cumsum
 
     if multi_cut_flag:
         theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
@@ -264,10 +289,10 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    model.setParam('Threads', threads)
     #model.setParam('LogFile', log_file_path)
-    model.setParam('LogToConsole', 0)
     #model.setParam('FeasibilityTol', 1e-8)
+    model.setParam('Threads', threads)
+    model.setParam('LogToConsole', 0)
 
     if not continuous_flag:
         model.setParam('MIPFocus', 3)
@@ -305,46 +330,27 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    _worker_model.setParam('InfUnbdInfo', 1)
-    _worker_model.setParam('Threads', threads)
     #_worker_model.setParam('LogFile', log_file_path)
+    _worker_model.setParam('Threads', threads)
     _worker_model.setParam('LogToConsole', 0)
+    _worker_model.setParam('InfUnbdInfo', 1)
     _worker_model.update()
     
     all_vars = _worker_model.getVars()
     all_constrs = _worker_model.getConstrs()
     
-    _worker_model._var_cache = {var.varName: var for var in all_vars}
     var_name_to_idx = {var.varName: i for i, var in enumerate(all_vars)}
-    _worker_model._var_name_to_idx = var_name_to_idx
-    
-    nonant_var_indices = {i for i, var in enumerate(all_vars) if var.varName.startswith("plus_")}
-    
-    constr_nonant_map = {}
-    all_rhs = [constr.RHS for constr in all_constrs]
-    
-    for constr_idx, constr in enumerate(all_constrs):
-        row = _worker_model.getRow(constr)
-        row_nonant_entries = []
-        
-        for i in range(row.size()):
-            var = row.getVar(i)
-            var_idx = var_name_to_idx.get(var.varName)
-            
-            if var_idx in nonant_var_indices:
-                row_nonant_entries.append((var_idx, row.getCoeff(i)))
-        
-        if row_nonant_entries:
-            constr_nonant_map[constr_idx] = tuple(row_nonant_entries)
-    
-    _worker_model._constr_nonant_map = constr_nonant_map
-    _worker_model._all_rhs = tuple(all_rhs)
-    _worker_model._all_constrs = all_constrs
-    
+
     nonant_vars = [var for var in all_vars if var.varName.startswith("plus_")]
     _worker_model._nonant_vars = nonant_vars
     _worker_model._nonant_var_names = [var.varName for var in nonant_vars]
-    _worker_model._nonant_idx_to_name = {var_name_to_idx[var.varName]: var.varName for var in nonant_vars}
+
+    A = _worker_model.getA()
+    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._nonant_var_names]
+    _worker_model._A_nonant = A[:, nonant_indices_list].tocsr()
+    
+    _worker_model._all_rhs = np.array([constr.RHS for constr in all_constrs], dtype=np.float64)
+    _worker_model._all_constrs = all_constrs
     
     return _worker_model
 

@@ -1,7 +1,8 @@
-import re
+from scenario_tree import generate_scenario_tree, extract_scenario_paths_and_probabilities
+from benders import CampusApplication
 import pandas as pd
-from mssp_model import MSSPProblemModel
-from scenario_tree import generate_scenario_tree
+import os
+import re
 
 def parse(s: str):
     m = re.match(r'([a-zA-Z]+)_(\d+)\[([^\]]+)\]', s)
@@ -42,50 +43,23 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
         input_data['heat_storage_initial'], worst_technology_advancements['heat_storage'], 
         numSubterms, numSubperiods, numStages, 1, mssp_flag=True)
     
-    worst_sp_model, worst_sp_env = MSSPProblemModel(worst_scenario_path_scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], 
-                                   input_data['heat_demand'], worst_scenario_path_initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'],
-                                   input_data['heat_purchasing_cost'], input_data['results_directory'], input_data['discount_factor'], None, tolerance, 'WorstIncumbent')
+    worst_scenario_paths, worst_scenario_path_probabilities = extract_scenario_paths_and_probabilities(worst_scenario_path_scenario_tree)
     
-    last_subperiod = numStages * numSubperiods
-    second_to_last_subperiod = last_subperiod - 1
+    log_file = open(os.path.join(input_data['results_directory'], 'IncumbentBendersLog.txt'), 'w')
+
+    solution = CampusApplication(numStages, numSubperiods, numSubterms, worst_scenario_path_scenario_tree, worst_scenario_path_initial_tech,
+                                 input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], input_data['budget'],
+                                 input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'], 
+                                 log_file, input_data['discount_factor'], worst_scenario_paths, worst_scenario_path_probabilities, tolerance,
+                                 benders_without_feasibility_flag, False, True, False, False, False, False, 4, 1, None, True)
     
     incumbent_solution = {}
     
-    for v in worst_sp_model.getVars():
-        dv_name, node_id, indices = parse(v.varName)
+    for varName, val in solution.items():        
+        dv_name, node_id, indices = parse(varName)
         node_stage = worst_scenario_path_scenario_tree.nodes[node_id].stage
         
         for each_node_id in stage_node_ranges[node_stage]:
-            
-            if dv_name == 'plus':
-                incumbent_solution[f'plus_{each_node_id}[{indices[0]},{indices[1]},{indices[2]}]'] = v.X
-            
-            if benders_without_feasibility_flag:
-
-                if node_stage == numStages:
-
-                    last_subperiod = numStages * numSubperiods
-                    second_to_last_subperiod = last_subperiod - 1
-
-                    subperiod = int(indices[0])
-                    
-                    if dv_name in ['electricitycharge', 'heatcharge', 'electricitydischarge', 'heatdischarge', 'electricityused', 'heatused']:
-                        if subperiod == last_subperiod:
-                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                    
-                    elif dv_name in ['electricitycarry', 'heatcarry']:
-                        p = int(indices[1])
-                        if subperiod == last_subperiod:
-                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                        elif subperiod == second_to_last_subperiod and p == numSubterms:
-                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]}]'] = v.X
-                    
-                    elif dv_name == 'transferredheat':
-                        t_ = int(indices[4])
-                        if t_ == last_subperiod:
-                            incumbent_solution[f'{dv_name}_{each_node_id}[{indices[0]},{indices[1]},{indices[2]},{indices[3]},{indices[4]}]'] = v.X
-
-    worst_sp_model.dispose()
-    worst_sp_env.dispose()
+            incumbent_solution[f"{dv_name}_{each_node_id}[{','.join(indices)}]"] = val
 
     return incumbent_solution

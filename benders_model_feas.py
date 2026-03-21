@@ -1,6 +1,7 @@
-import os
-import math
 from gurobipy import GRB, Model, quicksum, Env
+import numpy as np
+import math
+import os
 
 class ScenarioNode:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):
@@ -258,8 +259,8 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    model.setParam('Threads', threads)
     #model.setParam('LogFile', log_file_path)
+    model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)
 
     if not continuous_flag:
@@ -294,18 +295,16 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    _worker_model.setParam('Threads', threads)
     #_worker_model.setParam('LogFile', log_file_path)
+    _worker_model.setParam('Threads', threads)
     _worker_model.setParam('LogToConsole', 0)
     _worker_model.update()
     
     all_vars = _worker_model.getVars()
     all_constrs = _worker_model.getConstrs()
     
-    _worker_model._var_cache = {var.varName: var for var in all_vars}
     var_name_to_idx = {var.varName: i for i, var in enumerate(all_vars)}
-    _worker_model._var_name_to_idx = var_name_to_idx
-    
+
     nonant_vars = []
     for node in scenarioPathnodes:
         nonant_vars.extend(node.v_Plus.values())
@@ -313,31 +312,15 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
             nonant_vars.append(node.e_Carrying[node.stageSubperiods[-2], node.numSubterms])
             nonant_vars.append(node.h_Carrying[node.stageSubperiods[-2], node.numSubterms])
 
-    nonant_var_indices = {var_name_to_idx[var.varName] for var in nonant_vars}
-    
-    constr_nonant_map = {}
-    all_rhs = [constr.RHS for constr in all_constrs]
-    
-    for constr_idx, constr in enumerate(all_constrs):
-        row = _worker_model.getRow(constr)
-        row_nonant_entries = []
-        
-        for i in range(row.size()):
-            var = row.getVar(i)
-            var_idx = var_name_to_idx.get(var.varName)
-            
-            if var_idx in nonant_var_indices:
-                row_nonant_entries.append((var_idx, row.getCoeff(i)))
-        
-        if row_nonant_entries:
-            constr_nonant_map[constr_idx] = tuple(row_nonant_entries)
-    
-    _worker_model._constr_nonant_map = constr_nonant_map
-    _worker_model._all_rhs = tuple(all_rhs)
-    _worker_model._all_constrs = all_constrs
     _worker_model._nonant_vars = nonant_vars
     _worker_model._nonant_var_names = [var.varName for var in nonant_vars]
-    _worker_model._nonant_idx_to_name = {var_name_to_idx[var.varName]: var.varName for var in nonant_vars}
+    
+    A = _worker_model.getA()
+    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._nonant_var_names]
+    _worker_model._A_nonant = A[:, nonant_indices_list].tocsr()
+
+    _worker_model._all_rhs = np.array([constr.RHS for constr in all_constrs], dtype=np.float64)
+    _worker_model._all_constrs = all_constrs
     
     return _worker_model
 
@@ -359,8 +342,8 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    model.setParam('Threads', threads)
     #model.setParam('LogFile', log_file_path)
+    model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)
     model.update()
 
