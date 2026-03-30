@@ -35,13 +35,13 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
         worst_technology_advancements[technology_name] = {1: tech_df}
     
     worst_scenario_path_scenario_tree, worst_scenario_path_initial_tech = generate_scenario_tree(
-        input_data['solar_initial'], input_data['solar_periodic_generation'], worst_technology_advancements['solar'], 
-        input_data['wind_initial'], input_data['wind_periodic_generation'], worst_technology_advancements['wind'], 
-        input_data['electricity_storage_initial'], worst_technology_advancements['electricity_storage'], 
-        input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], worst_technology_advancements['parabolic_trough'], 
-        input_data['heat_pump_initial'], input_data['heat_pump_cop'], worst_technology_advancements['heat_pump'], 
-        input_data['heat_storage_initial'], worst_technology_advancements['heat_storage'], 
-        numSubterms, numSubperiods, numStages, 1, mssp_flag=True)
+        input_data['solar_initial'], input_data['solar_periodic_generation'], worst_technology_advancements['solar'],
+        input_data['wind_initial'], input_data['wind_periodic_generation'], worst_technology_advancements['wind'],
+        input_data['electricity_storage_initial'], worst_technology_advancements['electricity_storage'],
+        input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], worst_technology_advancements['parabolic_trough'],
+        input_data['heat_pump_initial'], input_data['heat_pump_cop'], worst_technology_advancements['heat_pump'],
+        input_data['heat_storage_initial'], worst_technology_advancements['heat_storage'],
+        numSubterms, numSubperiods, numStages, 1, benders_without_feasibility_flag)
     
     worst_scenario_paths, worst_scenario_path_probabilities = extract_scenario_paths_and_probabilities(worst_scenario_path_scenario_tree)
     
@@ -49,10 +49,10 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
 
     solution = CampusApplication(numStages, numSubperiods, numSubterms, worst_scenario_path_scenario_tree, worst_scenario_path_initial_tech,
                                  input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], input_data['budget'],
-                                 input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'], 
+                                 input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'],
                                  log_file, input_data['discount_factor'], worst_scenario_paths, worst_scenario_path_probabilities, tolerance,
-                                 benders_without_feasibility_flag, False, True, False, False, False, False, 4, 1, None, True)
-    
+                                 benders_without_feasibility_flag, False, False, False, False, 4, 1, None, True)
+
     incumbent_solution = {}
     
     for varName, val in solution.items():        
@@ -60,6 +60,7 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
         node_stage = worst_scenario_path_scenario_tree.nodes[node_id].stage
         
         for each_node_id in stage_node_ranges[node_stage]:
-            incumbent_solution[f"{dv_name}_{each_node_id}[{','.join(indices)}]"] = val
+            if "plus" in dv_name:
+                incumbent_solution[f"{dv_name}_{each_node_id}[{','.join(indices)}]"] = val
 
     return incumbent_solution

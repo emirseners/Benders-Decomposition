@@ -120,8 +120,8 @@ def obtain_operational_data(scenario_tree, filtered_results_by_path, numStages, 
 
 	return operational_data
 
-def compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers):
-	input_data = fetch_data(numStages, numSubperiods, numSubterms)
+def compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers, epsilon, folder_suffix):
+	input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, folder_suffix=folder_suffix)
 	optimization_results = read_results_sol(input_data["results_directory"])
 	
 	scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
@@ -146,8 +146,10 @@ def main():
 	numSubperiods = 5
 	numSubterms = 1092
 	numMultipliers = 2
+	epsilon = 0
+	folder_suffix = f"eps({epsilon})_base"
 
-	operational_data, scenario_paths, electricity_demand, heat_demand, results_dir = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers)
+	operational_data, scenario_paths, electricity_demand, heat_demand, results_dir = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers, epsilon, folder_suffix)
 	first_sp_id = min(scenario_paths.keys())
 	sp_data = operational_data[first_sp_id]
 	numTotalPeriods = numStages * numSubperiods

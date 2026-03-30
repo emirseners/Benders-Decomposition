@@ -1,7 +1,6 @@
 import os
 import re
 import csv
-import copy
 import time
 import numpy as np
 import concurrent.futures
@@ -511,11 +510,12 @@ if __name__ == '__main__':
     subterm_interval_length = 12
     perturbed_subterm_interval_length = 3
     epsilon = 0
+    folder_suffix = f"eps({epsilon})_base"
     numReplications = 100
 
     num_workers = min(os.cpu_count(), numReplications)
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms)
+    input_data = fetch_data(numStages, numSubperiods, numSubterms, folder_suffix=folder_suffix)
 
     results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
 
@@ -576,7 +576,7 @@ if __name__ == '__main__':
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_workers,
         initializer=_init_replication_worker,
-        initargs=(copy.deepcopy(scenario_tree), stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities)
+        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities)
     ) as executor:
         futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
 
@@ -601,6 +601,6 @@ if __name__ == '__main__':
         if not file_exists:
             csv_writer.writerow(['model', 'electricity purchase', 'heat purchase', 'electricity cost', 'heat cost', 'electricity violation', 'heat violation', 'electricity violation replications', 'heat violation replications'])
             csv_writer.writerow(optimal_results)
-        csv_writer.writerow([totals['e_purchase']/numReplications, totals['h_purchase']/numReplications, totals['e_cost']/numReplications, totals['h_cost']/numReplications, (100 * (totals['e_violation']/numReplications) / sum(input_data['electricity_demand'][-1])), (100 * (totals['h_violation']/numReplications) / sum(input_data['heat_demand'][-1])), e_violation_reps, h_violation_reps])
+        csv_writer.writerow([f'simeps({epsilon})_{perturbed_subterm_interval_length}_{subterm_interval_length}', totals['e_purchase']/numReplications, totals['h_purchase']/numReplications, totals['e_cost']/numReplications, totals['h_cost']/numReplications, (100 * (totals['e_violation']/numReplications) / sum(input_data['electricity_demand'][-1])), (100 * (totals['h_violation']/numReplications) / sum(input_data['heat_demand'][-1])), e_violation_reps, h_violation_reps])
 
     print(f"Total Execution Time: {time.time() - execution_start_time:.2f} seconds")

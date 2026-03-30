@@ -1,7 +1,7 @@
-import os
-import math
-import numpy as np
 from gurobipy import GRB, Model, quicksum, Env
+import numpy as np
+import math
+import os
 
 class ScenarioNode:
     def __init__(self, id_In, parent_In, probability_In, tree_In, techNodeList_In):
@@ -150,8 +150,8 @@ class ScenarioNode:
                 model.addConstr(-quicksum(0.01 * tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) >= -0.01 * budget[t], name = f'N{self.id}_Budget_{t}')
 
     def AddSpatialConstraints(self, model, spatial_limit):
-        for t_ in self.stageSubperiods:
-            if spatial_limit is not None:
+        if spatial_limit is not None:
+            for t_ in self.stageSubperiods:
                 model.addConstr(-quicksum(tech.spatial_requirement[v] * self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion) for t in self.allSubperiods if t <= t_ < t+tech.lifetime[v]) >= -spatial_limit, name = f'N{self.id}_Spatial_{t_}')
 
     def InitializeCurrentTech(self, initial_tech):
@@ -247,7 +247,7 @@ class ScenarioNode:
 
         return separation_data
 
-def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
+def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
     model_key = 'MasterProblem'
     master_env = Env(empty=True)
     master_env.start()
@@ -269,27 +269,24 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
         heat_demand_val = np.array(heat_demand[-1], dtype=np.float64)
         elec_demand_cumsum = np.concatenate(([0], np.cumsum(elec_demand_val)))
         heat_demand_cumsum = np.concatenate(([0], np.cumsum(heat_demand_val)))
-        
+
+        node_id_to_path_id = {node_id: pid for pid, nodes in scenario_paths.items() for node_id in nodes}
         for node in scenarioTree.nodes:
             if len(node.children) == 0:
-                path_id = next(path_id for path_id, scenario_nodes in scenario_paths.items() if node.id in scenario_nodes)
+                path_id = node_id_to_path_id[node.id]
                 separation_data[path_id] = node.ComputeSeparationData()
                 separation_data[path_id]['electricity_demand'] = elec_demand_val
                 separation_data[path_id]['heat_demand'] = heat_demand_val
                 separation_data[path_id]['electricity_demand_cumsum'] = elec_demand_cumsum
                 separation_data[path_id]['heat_demand_cumsum'] = heat_demand_cumsum
 
-    if multi_cut_flag:
-        theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
-        for sp_id, sp_probability in scenario_path_probabilities.items():
-            theta[sp_id].Obj = sp_probability
-    else:
-        theta = model.addVar(lb=0, name="theta", vtype=GRB.CONTINUOUS)
-        theta.Obj = 1
+    theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
+    for sp_id, sp_probability in scenario_path_probabilities.items():
+        theta[sp_id].Obj = sp_probability
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    #model.setParam('LogFile', log_file_path)
+    model.setParam('LogFile', log_file_path)
     #model.setParam('FeasibilityTol', 1e-8)
     model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)
@@ -372,8 +369,8 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    model.setParam('Threads', threads)
     #model.setParam('LogFile', log_file_path)
+    model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)
     model.update()
 

@@ -53,11 +53,15 @@ class ScenarioNodeMSSP:
             ancestor = ancestor.parent
         return ancestor
 
-    def AddVariables(self, model):
-        continuous_tech_nodes = [x for x in self.techNodeList if x not in self.electricitygenerationtechNodeList]
+    def AddVariables(self, model, continuous_flag):
         self.v_Plus = {}
-        self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in continuous_tech_nodes for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.CONTINUOUS, name="plus_"+str(self.id))) # purchase
-        self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in self.electricitygenerationtechNodeList for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.INTEGER, name="plus_"+str(self.id))) # purchase
+        if continuous_flag:
+            self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in self.techNodeList for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.CONTINUOUS, name="plus_"+str(self.id))) # purchase
+        else:
+            continuous_tech_nodes = [x for x in self.techNodeList if x not in self.electricitygenerationtechNodeList]
+            self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in continuous_tech_nodes for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.CONTINUOUS, name="plus_"+str(self.id))) # purchase
+            self.v_Plus.update(model.addVars([(tech.tree.type, v, t)  for tech in self.electricitygenerationtechNodeList for v in range(tech.NumVersion) for t in self.stageSubperiods], lb=0, vtype=GRB.INTEGER, name="plus_"+str(self.id))) # purchase
+
         if self.id != 0:
             self.e_Purchase = model.addVars([(t, p) for t in self.stageSubperiods for p in self.stageSubterms], vtype=GRB.CONTINUOUS, lb=0, name="electricitypurchase_"+str(self.id)) # electricity purchase amount
             self.h_Purchase = model.addVars([(t, p) for t in self.stageSubperiods for p in self.stageSubterms], vtype=GRB.CONTINUOUS, lb=0, name="heatpurchase_"+str(self.id)) # heat purchase amount
@@ -152,14 +156,14 @@ class ScenarioNodeMSSP:
                         ub_v = math.floor(budget[t] / tech.cost[v])
                         self.v_Plus[tech.tree.type,v,t].ub = ub_v
 
-def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, discount_factor, results_sol_path, tolerance, model_name):
+def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, discount_factor, tolerance, model_name, results_sol_path=None, continuous_flag=False):
     mssp_env = Env(empty=True)
     mssp_env.start()
     model = Model(model_name, env=mssp_env)
     model.setParam('OutputFlag', 1)
 
     for node in scenarioTree.nodes:
-        node.AddVariables(model)
+        node.AddVariables(model, continuous_flag)
         node.InitializeCurrentTech(initial_tech)
         if node.id != 0:
             node.AddObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor)
@@ -174,47 +178,51 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 
     model.update()
 
-    solution_values = {}
-    with open(results_sol_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            
-            parts = line.split()
-            if len(parts) >= 2:
-                var_name = parts[0]
-                var_value = float(parts[1])
-                solution_values[var_name] = var_value
+    if results_sol_path:
+        solution_values = {}
+        with open(results_sol_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
 
-    vars_to_fix = []
-    values_to_fix = []
-    unfixed_vars = []
+                parts = line.split()
+                if len(parts) >= 2:
+                    var_name = parts[0]
+                    var_value = float(parts[1])
+                    solution_values[var_name] = var_value
 
-    for var in model.getVars():
-        if var.varName in solution_values:
-            vars_to_fix.append(var)
-            values_to_fix.append(solution_values[var.varName])
-        else:
-            unfixed_vars.append(var.varName)
+        vars_to_fix = []
+        values_to_fix = []
+        unfixed_vars = []
 
-    model.setAttr('LB', vars_to_fix, values_to_fix)
-    model.setAttr('UB', vars_to_fix, values_to_fix)
+        for var in model.getVars():
+            if var.varName in solution_values:
+                vars_to_fix.append(var)
+                values_to_fix.append(solution_values[var.varName])
+            else:
+                unfixed_vars.append(var.varName)
+
+        model.setAttr('LB', vars_to_fix, values_to_fix)
+        model.setAttr('UB', vars_to_fix, values_to_fix)
 
     if not os.path.exists(results_directory):
         os.makedirs(results_directory)
 
     log_file_path = os.path.join(results_directory, f'{model_name}_GurobiLog.txt')
 
-    model.setParam('MIPFocus', 3)
-    model.setParam('TimeLimit', 86400)
-    model.setParam('MIPGap', tolerance)
-    model.setParam('NodefileStart', 0.95)
-    model.setParam('FeasibilityTol', 1e-5)
-    model.setParam('Threads', 1)
-    #model.setParam('LogFile', log_file_path)
+    model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
-    model.setParam('NodefileDir', '.')
+    model.setParam('Threads', 1)
+
+    if not continuous_flag:
+        model.setParam('MIPFocus', 3)
+        model.setParam('TimeLimit', 86400)
+        model.setParam('MIPGap', tolerance)
+        model.setParam('NodefileStart', 0.95)
+        model.setParam('NodefileDir', '.')
+        model.setParam('FeasibilityTol', 1e-5)
+
     model.update()
     model.optimize()
 
@@ -226,18 +234,19 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
         iis_file_path = os.path.join(results_directory, f'{model_name}_IIS.ilp')
         model.write(iis_file_path)
     else:
-        model.write(results_sol_path)
+        sol_output_path = results_sol_path if results_sol_path else os.path.join(results_directory, f'{model_name}.sol')
+        model.write(sol_output_path)
 
     return model, mssp_env
 
 def run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance):
     results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
-    
+
     scenario_tree_verify, initial_tech_verify = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
-    
-    verify_model, verify_env = MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], 
-                               initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], 
-                               input_data['results_directory'], input_data['discount_factor'], results_sol_path, tolerance, model_name='VerifyFeasibility')
+
+    verify_model, verify_env = MSSPProblemModel(scenario_tree_verify, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'],
+                               initial_tech_verify, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
+                               input_data['results_directory'], input_data['discount_factor'], tolerance, model_name='VerifyFeasibility', results_sol_path=results_sol_path)
 
     verify_model.dispose()
     verify_env.dispose()
@@ -248,9 +257,18 @@ if __name__ == '__main__':
     numSubterms = 1092
     numMultipliers = 2
     epsilon = 0
-
     tolerance=0.01
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon = epsilon)
+    continuous_flag = False
+    folder_suffix = f"eps({epsilon})"
 
-    run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance)
+    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, folder_suffix=folder_suffix)
+
+    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
+
+    model, env = MSSPProblemModel(scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'],
+                                  initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
+                                  input_data['results_directory'], input_data['discount_factor'], tolerance, model_name='MsspModel', continuous_flag=continuous_flag)
+
+    model.dispose()
+    env.dispose()

@@ -109,10 +109,10 @@ def fetch_raw_data():
         base_parabolic_trough_periodic_generation=base_parabolic_trough_periodic_generation, base_parabolic_trough_periodic_generation_std=base_parabolic_trough_periodic_generation_std,
         heat_pump_initial=heat_pump_initial, heat_pump_advancements=heat_pump_advancements,
         base_heat_pump_cop_nominal=base_heat_pump_cop_nominal, base_heat_pump_cop_std=base_heat_pump_cop_std,
-        heat_storage_initial=heat_storage_initial, heat_storage_advancements=heat_storage_advancements,
+        heat_storage_initial=heat_storage_initial, heat_storage_advancements=heat_storage_advancements
     )
 
-def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None):
+def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None, folder_suffix=""):
     if raw_data is None:
         raw_data = fetch_raw_data()
 
@@ -148,7 +148,7 @@ def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None):
     emission_limits = [None for _ in range(numStages*numSubperiods)] + [0]
     budget = [0, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000]
 
-    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_eps({epsilon})'
+    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
 
     electricity_demand = [None] + [electricity_demand[:numSubterms] for _ in range(numStages * numSubperiods)]
     heat_demand = [None] + [heat_demand[:numSubterms] for _ in range(numStages * numSubperiods)]
@@ -161,11 +161,9 @@ def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None):
     parabolic_trough_initial=raw_data['parabolic_trough_initial'], parabolic_trough_periodic_generation=parabolic_trough_periodic_generation,
     parabolic_trough_advancements=raw_data['parabolic_trough_advancements'], heat_pump_initial=raw_data['heat_pump_initial'], heat_pump_cop=heat_pump_cop,
     heat_pump_advancements=raw_data['heat_pump_advancements'], heat_storage_initial=raw_data['heat_storage_initial'], heat_storage_advancements=raw_data['heat_storage_advancements'],
-    emission_limits=emission_limits, electricity_demand=electricity_demand, heat_demand=heat_demand, budget=budget,
-    electricity_purchasing_cost=electricity_purchasing_cost, heat_purchasing_cost=heat_purchasing_cost,
-    results_directory=results_directory, discount_factor=discount_factor,
-    electricity_demand_std=electricity_demand_std, heat_demand_std=heat_demand_std,
-    solar_periodic_generation_std=solar_periodic_generation_std, wind_periodic_generation_std=wind_periodic_generation_std,
+    emission_limits=emission_limits, electricity_demand=electricity_demand, heat_demand=heat_demand, budget=budget, electricity_purchasing_cost=electricity_purchasing_cost,
+    heat_purchasing_cost=heat_purchasing_cost, results_directory=results_directory, discount_factor=discount_factor, electricity_demand_std=electricity_demand_std,
+    heat_demand_std=heat_demand_std, solar_periodic_generation_std=solar_periodic_generation_std, wind_periodic_generation_std=wind_periodic_generation_std,
     parabolic_trough_periodic_generation_std=parabolic_trough_periodic_generation_std, heat_pump_cop_std=heat_pump_cop_std)
 
     return data

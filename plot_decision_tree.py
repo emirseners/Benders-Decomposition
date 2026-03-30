@@ -6,10 +6,7 @@ def read_and_aggregate_capacities(sol_file_path):
 
     wind_capacity = 6.0
 
-    capacities = defaultdict(lambda: defaultdict(lambda: {
-        'solar': 0.0, 'wind': 0.0, 'battery': 0.0,
-        'heat_pump': 0.0, 'parabolic_trough': 0.0, 'heat_storage': 0.0
-    }))
+    capacities = defaultdict(lambda: defaultdict(lambda: {'solar': 0.0, 'wind': 0.0, 'battery': 0.0, 'heat_pump': 0.0, 'parabolic_trough': 0.0, 'heat_storage': 0.0}))
 
     pattern = re.compile(r'^plus_(\d+)\[(\w+),(\d+),(\d+)\]\s+([\d.eE\+\-]+)')
 
@@ -143,14 +140,14 @@ def generate_node1_latex(node_id, x, y, node_data):
             matrix_content.append(f"Year {year} & {solar} & {wind} & {battery} & {heat_pump} & {parabolic_trough} & {heat_storage} \\\\")
         else:
             matrix_content.append(f"Year {year} & - & - & - & - & - & - \\\\")
-    
+
     latex_lines.append(f"    \\node ({node_id}) [inner sep=0pt] at ({x}, {y}) {{")
     latex_lines.append("      \\begin{tikzpicture}[scale=0.51]")
     latex_lines.append("        \\matrix (M) [matrix of nodes, nodes={draw, minimum size=2.5cm, minimum height=0.52cm, anchor=center, text height=1.6ex, text depth=0.4ex, font=\\scriptsize, draw=black!60, line width=0.05pt}, column 1/.style={nodes={draw=none}}] {")
-    
+
     for line in matrix_content:
         latex_lines.append(f"          {line}")
-    
+
     latex_lines.append("        };")
     latex_lines.append("    \\draw[-, dashed, draw=black!60, line width=0.05pt]")
     latex_lines.append("        (M-2-1.north west) -- (M-2-1.north east)")
@@ -170,7 +167,7 @@ def generate_node1_latex(node_id, x, y, node_data):
     latex_lines.append("        \\end{scope}")
     latex_lines.append("      \\end{tikzpicture}")
     latex_lines.append("    };")
-    
+
     return latex_lines
 
 def generate_node2to5_latex(node_id, x, y, node_data):
@@ -188,14 +185,14 @@ def generate_node2to5_latex(node_id, x, y, node_data):
             matrix_content.append(f"Year {year} & {solar} & {wind} & {battery} & {heat_pump} & {parabolic_trough} & {heat_storage} \\\\")
         else:
             matrix_content.append(f"Year {year} & - & - & - & - & - & - \\\\")
-    
+
     latex_lines.append(f"    \\node ({node_id}) [inner sep=0pt] at ({x}, {y}) {{")
     latex_lines.append("      \\begin{tikzpicture}[scale=0.51]")
     latex_lines.append("        \\matrix (M) [matrix of nodes, nodes={draw, minimum size=0.6cm, minimum height=0.52cm, anchor=center, font=\\scriptsize, draw=black!60, line width=0.05pt}, column 1/.style={nodes={draw=none}}] {")
-    
+
     for line in matrix_content:
         latex_lines.append(f"          {line}")
-    
+
     latex_lines.append("        };")
     latex_lines.append("    \\draw[-, dashed, draw=black!60, line width=0.05pt]")
     latex_lines.append("        (M-1-1.north west) -- (M-1-1.north east)")
@@ -215,7 +212,7 @@ def generate_node2to5_latex(node_id, x, y, node_data):
     latex_lines.append("        \\end{scope}")
     latex_lines.append("      \\end{tikzpicture}")
     latex_lines.append("    };")
-    
+
     return latex_lines
 
 def generate_node3to5_simple_latex(node_id, x, y, node_data):
@@ -233,14 +230,14 @@ def generate_node3to5_simple_latex(node_id, x, y, node_data):
             matrix_content.append(f"{solar} & {wind} & {battery} & {heat_pump} & {parabolic_trough} & {heat_storage} \\\\")
         else:
             matrix_content.append("- & - & - & - & - & - \\\\")
-    
+
     latex_lines.append(f"    \\node ({node_id}) [inner sep=0pt] at ({x}, {y}) {{")
     latex_lines.append("      \\begin{tikzpicture}[scale=0.51]")
     latex_lines.append("        \\matrix (M) [matrix of nodes, nodes={draw, minimum size=0.6cm, minimum height=0.52cm, anchor=center, font=\\scriptsize, draw=black!60, line width=0.05pt}] {")
-    
+
     for line in matrix_content:
         latex_lines.append(f"          {line}")
-    
+
     latex_lines.append("        };")
     latex_lines.append("        \\begin{scope}[on background layer]")
     latex_lines.append("          \\node[fill=solaryellow, fit=(M-1-1)(M-5-1), inner sep=0pt] {};")
@@ -252,7 +249,7 @@ def generate_node3to5_simple_latex(node_id, x, y, node_data):
     latex_lines.append("        \\end{scope}")
     latex_lines.append("      \\end{tikzpicture}")
     latex_lines.append("    };")
-    
+
     return latex_lines
 
 def generate_node6to21_simple_latex(node_id, x, y, node_data):
@@ -271,7 +268,7 @@ def generate_node6to21_simple_latex(node_id, x, y, node_data):
                 matrix_content.append(f"Y. {year} & {solar} & {wind} & {battery} & {heat_pump} & {parabolic_trough} & {heat_storage} \\\\")
             else:
                 matrix_content.append(f"Y. {year} & - & - & - & - & - & - \\\\")
-        
+
         matrix_content.append("{} & {} & {} & {} & {} & {} & {} \\\\")
         matrix_content.append("{} & {} & {} & {} & {} & {} & {} \\\\")
         
@@ -320,7 +317,7 @@ def generate_node6to21_simple_latex(node_id, x, y, node_data):
                 matrix_content.append(f"{solar} & {wind} & {battery} & {heat_pump} & {parabolic_trough} & {heat_storage} \\\\")
             else:
                 matrix_content.append("- & - & - & - & - & - \\\\")
-        
+
         matrix_content.append("{} & {} & {} & {} & {} & {} & {} \\\\")
         matrix_content.append("{} & {} & {} & {} & {} & {} & {} \\\\")
         
@@ -365,7 +362,7 @@ def generate_node6to21_simple_latex(node_id, x, y, node_data):
         latex_lines.append("        \\end{scope}")
         latex_lines.append("      \\end{tikzpicture}")
         latex_lines.append("    };")
-    
+
     return latex_lines
 
 def generate_connections():
@@ -404,14 +401,16 @@ def generate_node_labels():
 
 def main():
     model_name = '3_5_1092'
-    sol_file = "Results_3_5_1092/Results.sol"
+    epsilon = 0
+    folder_suffix = f"eps({epsilon})_base"
+    sol_file = f"Results_{model_name}_{folder_suffix}/Results.sol"
+
     capacities = read_and_aggregate_capacities(sol_file)
-    
     latex_output = generate_latex_code(capacities, model_name)
-        
+
     output_name = 'DT_' + model_name + '.tex'
     with open(output_name, 'w') as f:
         f.write(latex_output)
 
 if __name__ == "__main__":
-    main() 
+    main()

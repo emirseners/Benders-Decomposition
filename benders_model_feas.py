@@ -228,7 +228,7 @@ class ScenarioNode:
                         ub_v = math.floor(budget[t] / tech.cost[v])
                         self.v_Plus[tech.tree.type,v,t].ub = ub_v
 
-def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, multi_cut_flag, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
+def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, budget, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, scenario_paths, scenario_path_probabilities, continuous_flag, valid_inequalities_flag, tolerance):
     model_key = 'MasterProblem'
     master_env = Env(empty=True)
     master_env.start()
@@ -249,13 +249,9 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
                 node.AddMasterStorageCapacityConstraints(model)
                 node.AddMasterHeatTransferCapacityConstraints(model)
 
-    if multi_cut_flag:
-        theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
-        for sp_id, sp_probability in scenario_path_probabilities.items():
-            theta[sp_id].Obj = sp_probability
-    else:
-        theta = model.addVar(lb=0, name="theta", vtype=GRB.CONTINUOUS)
-        theta.Obj = 1
+    theta = model.addVars(list(scenario_paths.keys()), lb=0, vtype=GRB.CONTINUOUS, name="theta")
+    for sp_id, sp_probability in scenario_path_probabilities.items():
+        theta[sp_id].Obj = sp_probability
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 

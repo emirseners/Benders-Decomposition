@@ -14,9 +14,7 @@ if __name__ == '__main__':
     aggregated_subproblems_flag = False
     valid_inequalities_flag = False
     worst_sp_incumbent_flag = False
-    write_cuts_flag = False
     continuous_flag = False
-    multi_cut_flag = True
     callback_flag = False
     master_threads = 4
     threads_per_worker = 1
@@ -31,8 +29,9 @@ if __name__ == '__main__':
     for numSubterms in numSubterms_levels:
         for epsilon in epsilon_levels:
             execution_start_time = time.time()
+            folder_suffix = f"eps({epsilon})_base"
 
-            input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, raw_data=raw_data)
+            input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, raw_data=raw_data, folder_suffix=folder_suffix)
 
             scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, benders_without_feasibility_flag)
             stage_node_ranges = extract_stage_node_ranges(scenario_tree)
@@ -52,7 +51,7 @@ if __name__ == '__main__':
             CampusApplication(numStages, numSubperiods, numSubterms, scenario_tree, initial_tech, input_data['emission_limits'], input_data['electricity_demand'],
                               input_data['heat_demand'], input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'], 
                               log_file, input_data['discount_factor'], scenario_paths, scenario_path_probabilities, tolerance, benders_without_feasibility_flag, aggregated_subproblems_flag,
-                              multi_cut_flag, callback_flag, write_cuts_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution)
+                              callback_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution)
             
             summary_lines = [f"Total Time: {time.time() - execution_start_time:.2f} seconds"]
             log_file.write('\n'.join(summary_lines) + '\n')

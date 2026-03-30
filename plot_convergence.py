@@ -48,7 +48,9 @@ def main():
     numStages = 3
     numSubperiods = 5
     numSubterms = 1092
-    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}'
+    epsilon = 0
+    folder_suffix = f"eps({epsilon})_base"
+    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
     
     log_file_path = os.path.join(results_directory, 'BendersLog.txt')
     
