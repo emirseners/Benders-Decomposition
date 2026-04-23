@@ -109,13 +109,13 @@ class ScenarioNode:
                 for t in self.stageSubperiods:
                     self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
 
-    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag):
+    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, prob_flag):
         subperiods_of_interest = self.stageSubperiods if len(self.children) != 0 else self.stageSubperiods[:-1]
         for t in subperiods_of_interest:
             discount_t = discount_factor ** t
             e_cost_t = electricity_purchasing_cost[t] * discount_t
             h_cost_t = heat_purchasing_cost[t] * discount_t
-            if aggregated_subproblems_flag:
+            if prob_flag:
                 e_cost_t *= self.probability
                 h_cost_t *= self.probability
             for p in self.stageSubterms:
@@ -262,9 +262,9 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     if not continuous_flag:
         model.setParam('MIPFocus', 3)    
         model.setParam('TimeLimit', 86400)
-        model.setParam('MIPGap', tolerance)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')
+        model.setParam('MIPGap', tolerance / 2)
 
     model.update()
 
@@ -295,29 +295,29 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
     _worker_model.setParam('Threads', threads)
     _worker_model.setParam('LogToConsole', 0)
     _worker_model.update()
-    
+
     all_vars = _worker_model.getVars()
     all_constrs = _worker_model.getConstrs()
-    
+
     var_name_to_idx = {var.varName: i for i, var in enumerate(all_vars)}
 
-    nonant_vars = []
+    master_vars = []
     for node in scenarioPathnodes:
-        nonant_vars.extend(node.v_Plus.values())
+        master_vars.extend(node.v_Plus.values())
         if len(node.children) == 0:
-            nonant_vars.append(node.e_Carrying[node.stageSubperiods[-2], node.numSubterms])
-            nonant_vars.append(node.h_Carrying[node.stageSubperiods[-2], node.numSubterms])
+            master_vars.append(node.e_Carrying[node.stageSubperiods[-2], node.numSubterms])
+            master_vars.append(node.h_Carrying[node.stageSubperiods[-2], node.numSubterms])
 
-    _worker_model._nonant_vars = nonant_vars
-    _worker_model._nonant_var_names = [var.varName for var in nonant_vars]
-    
+    _worker_model._master_vars = master_vars
+    _worker_model._master_var_names = [var.varName for var in master_vars]
+
     A = _worker_model.getA()
-    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._nonant_var_names]
-    _worker_model._A_nonant = A[:, nonant_indices_list].tocsr()
-
+    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._master_var_names]
+    _worker_model._A_master = A[:, nonant_indices_list].tocsr()
+    
     _worker_model._all_rhs = np.array([constr.RHS for constr in all_constrs], dtype=np.float64)
     _worker_model._all_constrs = all_constrs
-    
+
     return _worker_model
 
 def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, threads, discount_factor, aggregated_subproblems_flag):
@@ -330,7 +330,7 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
         if len(node.children) != 0:
             node.AddSubproblemDecisionVariables(model)
             if node.id != 0:
-                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag)
+                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, True)
                 node.AddSubproblemDemandConstraints(model, electricity_demand, heat_demand)
                 node.AddSubproblemInventoryBalanceConstraints(model)
                 node.AddSubproblemStorageCapacityConstraints(model)

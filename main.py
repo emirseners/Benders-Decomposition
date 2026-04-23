@@ -1,10 +1,10 @@
-import os
-import time
-from fetch_data import fetch_raw_data, fetch_data
-from benders import CampusApplication
-from mssp_model import run_mssp_verification
-from obtain_incumbent import obtain_incumbent
 from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, extract_scenario_paths_and_probabilities
+from fetch_data import fetch_raw_data, fetch_data
+from obtain_incumbent import obtain_incumbent
+from mssp_model import run_mssp_verification
+from benders import run_benders
+import time
+import os
 
 if __name__ == '__main__':
     numStages = 3
@@ -48,10 +48,10 @@ if __name__ == '__main__':
             if worst_sp_incumbent_flag:
                 incumbent_solution = obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, input_data, stage_node_ranges, benders_without_feasibility_flag, tolerance)
 
-            CampusApplication(numStages, numSubperiods, numSubterms, scenario_tree, initial_tech, input_data['emission_limits'], input_data['electricity_demand'],
-                              input_data['heat_demand'], input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'], 
-                              log_file, input_data['discount_factor'], scenario_paths, scenario_path_probabilities, tolerance, benders_without_feasibility_flag, aggregated_subproblems_flag,
-                              callback_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution)
+            run_benders(numStages, numSubperiods, numSubterms, scenario_tree, initial_tech, input_data['emission_limits'], input_data['electricity_demand'],
+                        input_data['heat_demand'], input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'], 
+                        log_file, input_data['discount_factor'], scenario_paths, scenario_path_probabilities, tolerance, benders_without_feasibility_flag, aggregated_subproblems_flag,
+                        callback_flag, continuous_flag, valid_inequalities_flag, master_threads, threads_per_worker, incumbent_solution)
             
             summary_lines = [f"Total Time: {time.time() - execution_start_time:.2f} seconds"]
             log_file.write('\n'.join(summary_lines) + '\n')

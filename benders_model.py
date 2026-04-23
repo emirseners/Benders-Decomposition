@@ -93,12 +93,12 @@ class ScenarioNode:
                 for t in self.stageSubperiods:
                     self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
 
-    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag):
+    def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, prob_flag):
         for t in self.stageSubperiods:
             discount_t = discount_factor ** t
             e_cost_t = electricity_purchasing_cost[t] * discount_t
             h_cost_t = heat_purchasing_cost[t] * discount_t
-            if aggregated_subproblems_flag:
+            if prob_flag:
                 e_cost_t *= self.probability
                 h_cost_t *= self.probability
             for p in self.stageSubterms:
@@ -296,7 +296,7 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
         model.setParam('TimeLimit', 86400)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')
-        model.setParam('MIPGap', tolerance)
+        model.setParam('MIPGap', tolerance / 2)
 
     model.update()
 
@@ -338,13 +338,13 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
     
     var_name_to_idx = {var.varName: i for i, var in enumerate(all_vars)}
 
-    nonant_vars = [var for var in all_vars if var.varName.startswith("plus_")]
-    _worker_model._nonant_vars = nonant_vars
-    _worker_model._nonant_var_names = [var.varName for var in nonant_vars]
+    master_vars = [var for var in all_vars if var.varName.startswith("plus_")]
+    _worker_model._master_vars = master_vars
+    _worker_model._master_var_names = [var.varName for var in master_vars]
 
     A = _worker_model.getA()
-    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._nonant_var_names]
-    _worker_model._A_nonant = A[:, nonant_indices_list].tocsr()
+    nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._master_var_names]
+    _worker_model._A_master = A[:, nonant_indices_list].tocsr()
     
     _worker_model._all_rhs = np.array([constr.RHS for constr in all_constrs], dtype=np.float64)
     _worker_model._all_constrs = all_constrs
@@ -361,7 +361,7 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
         if len(node.children) != 0:
             node.AddSubproblemDecisionVariables(model)
             if node.id != 0:
-                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, aggregated_subproblems_flag)
+                node.AddSubproblemObjectiveCoefficients(electricity_purchasing_cost, heat_purchasing_cost, discount_factor, True)
                 node.AddSubproblemDemandConstraints(model, electricity_demand, heat_demand)
                 node.AddSubproblemInventoryBalanceConstraints(model)
                 node.AddSubproblemStorageCapacityConstraints(model)
