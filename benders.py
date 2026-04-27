@@ -152,8 +152,8 @@ def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproble
     for sp_id, is_feasible in subproblem_feasibility.items():
         cut_intercept = subproblem_cut_intercepts[sp_id]
         dual_coefs = subproblem_dual_coefs[sp_id]
-        significant_idx = np.nonzero(dual_coefs)[0]
-        #significant_idx = np.where(np.abs(dual_coefs) > 1e-6)[0]
+        #significant_idx = np.nonzero(dual_coefs)[0]
+        significant_idx = np.where(np.abs(dual_coefs) > 1e-6)[0]
         significant_dual_coefs = dual_coefs[significant_idx]
         length_significant = len(significant_idx)
         if is_feasible:
@@ -444,6 +444,14 @@ def benders_callback(model, where):
         subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_ids)
         upper_bound = current_obj - theta_sum + subproblem_obj_sum
         cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, call_back_data['master_vars_by_sp'], call_back_data['theta_vars'], call_back_data['master_scaling_stats'], call_back_data['master_model_indices'], call_back_data['theta_model_indices'])
+
+        all_var_values = np.array(model.cbGetSolution(call_back_data['all_vars']), dtype=np.float64)
+        cut_expressions = {
+            sp_id: (expr, scale, var_idx, coefs, const)
+            for sp_id, (expr, scale, var_idx, coefs, const) in cut_expressions.items()
+            if np.dot(coefs, all_var_values[var_idx]) + const < -1e-6 * scale
+        }
+        
         for cut_expression, *_ in cut_expressions.values():
             model.cbLazy(cut_expression >= 0)
 
@@ -473,9 +481,7 @@ def benders_callback(model, where):
 
             if all_feasible and upper_bound < call_back_data['best_upper_bound']:
                 call_back_data['best_upper_bound'] = upper_bound
-                cached_all_vars = call_back_data['all_vars']
-                all_var_values = model.cbGetSolution(cached_all_vars)
-                call_back_data['best_ub_solution'] = {var.varName: val for var, val in zip(cached_all_vars, all_var_values) if not var.varName.startswith("theta")}
+                call_back_data['best_ub_solution'] = {var.varName: val for var, val in zip(call_back_data['all_vars'], all_var_values) if not var.varName.startswith("theta")}
 
             if lower_bound > call_back_data['best_lower_bound']:
                 call_back_data['best_lower_bound'] = lower_bound
@@ -808,6 +814,12 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             else:
                 cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices)
 
+            cut_expressions = {
+                sp_id: (expr, scale, var_idx, coefs, const)
+                for sp_id, (expr, scale, var_idx, coefs, const) in cut_expressions.items()
+                if np.dot(coefs, all_var_values[var_idx]) + const < -1e-6 * scale
+            }
+
             for sp_id, (cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant) in cut_expressions.items():
                 cut_name = f'OptimalityCut{sp_id}_{iteration}' if subproblem_feasibility.get(sp_id, False) else f'FeasibilityCut{sp_id}_{iteration}'
                 register_cut(cut_name, cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant, master_model, lp_master_model, lp_all_vars, generated_cuts_data)
@@ -875,7 +887,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                     best_lb_progress = None
                 else:
                     best_lb_progress = (best_lower_bound - best_lb_array[0]) / max(abs(best_lower_bound), 1e-10)
-                if gap < tolerance or (best_lb_progress is not None and best_lb_progress < 0.0002):
+                if gap < tolerance or (best_lb_progress is not None and best_lb_progress < 0.001):
                     for var, vtype in original_variable_types.items():
                         var.setAttr('VType', vtype)
                     master_model.update()
@@ -963,12 +975,10 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             f.write(f"{var_name} {var_value}\n")
 
     best_master_solution_array = np.array([best_ub_solution[name] for name in master_var_names], dtype=np.float64)
-    electricity_carry_values, heat_carry_values = write_final_subproblem_solutions(executors, best_master_solution_array, master_dv_indices, results_directory, scenario_paths, numStages, numSubperiods, numSubterms)
-
-    for executor in executors.values():
-        executor.shutdown(wait=True)
 
     if not aggregated_subproblems_flag:
+        electricity_carry_values, heat_carry_values = write_final_subproblem_solutions(executors, best_master_solution_array, master_dv_indices, results_directory, scenario_paths, numStages, numSubperiods, numSubterms)
+
         operational_model, operational_env = OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity_demand, heat_demand, initial_tech, electricity_purchasing_cost, heat_purchasing_cost, results_directory, master_threads, discount_factor, aggregated_subproblems_flag)
 
         vars_to_fix = []
@@ -1003,6 +1013,24 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
         operational_model.dispose()
         operational_env.dispose()
+
+    else:
+        futures = {sp_id: executors[sp_id].submit(solve_subproblem, best_master_solution_array[master_dv_indices[sp_id]]) for sp_id in scenario_paths.keys()}
+        for future in futures.values():
+            future.result()
+
+        with open(final_sol_file, 'a') as f:
+            for executor in executors.values():
+                sub_vars = executor.submit(get_all_subproblem_solution).result()
+                for var_name, var_value in sub_vars.items():
+                    if var_name not in master_var_names:
+                        f.write(f"{var_name} {var_value}\n")
+
+    for executor in executors.values():
+        executor.shutdown(wait=True)
+
+    #lp_filename = os.path.join(results_directory, f'MasterModel.lp')
+    #master_model.write(lp_filename)
 
     if lp_master_model is not None:
         lp_master_model.dispose()

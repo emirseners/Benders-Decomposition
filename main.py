@@ -57,4 +57,4 @@ if __name__ == '__main__':
             log_file.write('\n'.join(summary_lines) + '\n')
             log_file.close()
 
-            run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance)
+            run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, numMultipliers, tolerance, continuous_flag)
