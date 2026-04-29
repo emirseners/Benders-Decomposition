@@ -146,7 +146,7 @@ def build_cut_linexpr(significant_dual_coefs, significant_idx, scale_factor, mas
     expr.addConstant(cut_constant)
     return expr, cut_var_indices, cut_coefs, cut_constant
 
-def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices):
+def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices, all_var_values):
     cut_expressions = {}
 
     for sp_id, is_feasible in subproblem_feasibility.items():
@@ -157,20 +157,20 @@ def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproble
         significant_dual_coefs = dual_coefs[significant_idx]
         length_significant = len(significant_idx)
         if is_feasible:
-            cut_values = np.empty(length_significant + 2, dtype=np.float64)
+            cut_values = np.empty(length_significant + 1, dtype=np.float64)
             cut_values[0] = 1.0
-            cut_values[1:length_significant + 1] = significant_dual_coefs
-            cut_values[length_significant + 1] = cut_intercept
+            cut_values[1:] = significant_dual_coefs
             scale_factor = _compute_scale_factor(cut_values, master_scaling_stats)
             expr, cut_var_indices, cut_coefs, cut_constant = build_cut_linexpr(significant_dual_coefs, significant_idx, scale_factor, master_vars_by_sp[sp_id], master_model_indices[sp_id], cut_intercept, theta_vars[sp_id], theta_model_indices[sp_id])
-            cut_expressions[sp_id] = (expr, scale_factor, cut_var_indices, cut_coefs, cut_constant)
         else:
-            cut_values = np.empty(length_significant + 1, dtype=np.float64)
-            cut_values[:length_significant] = significant_dual_coefs
-            cut_values[length_significant] = cut_intercept
-            scale_factor = _compute_scale_factor(cut_values, master_scaling_stats)
+            scale_factor = _compute_scale_factor(significant_dual_coefs, master_scaling_stats)
             expr, cut_var_indices, cut_coefs, cut_constant = build_cut_linexpr(significant_dual_coefs, significant_idx, scale_factor, master_vars_by_sp[sp_id], master_model_indices[sp_id], cut_intercept)
-            cut_expressions[sp_id] = (expr, scale_factor, cut_var_indices, cut_coefs, cut_constant)
+
+        slack = np.dot(cut_coefs, all_var_values[cut_var_indices]) + cut_constant
+        if slack >= -1e-6 * scale_factor:
+            continue
+
+        cut_expressions[sp_id] = (expr, scale_factor, cut_var_indices, cut_coefs, cut_constant)
 
     return cut_expressions
 
@@ -207,7 +207,7 @@ def _build_electricity_cut(sp_id, scenario_path_separation_data, electricity_sto
     summed_coefs = scenario_path_separation_data['elec_coef_cumsum'][q_ub_e] - scenario_path_separation_data['elec_coef_cumsum'][q_lb_e - 1]
 
     combined_coefs = np.concatenate([summed_coefs, scenario_path_separation_data['elec_storage_coefs']])
-    cut_values = np.concatenate([combined_coefs[np.nonzero(combined_coefs)[0]], [electricity_demand_sum]])
+    cut_values = combined_coefs[np.nonzero(combined_coefs)[0]]
     scale_factor = _compute_scale_factor(cut_values, master_scaling_stats)
 
     scaled_summed = summed_coefs * scale_factor
@@ -234,7 +234,7 @@ def _build_heat_cut(sp_id, scenario_path_separation_data, heat_storage_const, q_
     summed_coefs = scenario_path_separation_data['heat_coef_cumsum'][q_ub_h] - scenario_path_separation_data['heat_coef_cumsum'][q_lb_h - 1]
 
     combined_coefs = np.concatenate([summed_coefs, scenario_path_separation_data['heat_transfer_coefs'] * num_subterms, scenario_path_separation_data['heat_storage_coefs']])
-    cut_values = np.concatenate([combined_coefs[np.nonzero(combined_coefs)[0]], [heat_demand_sum]])
+    cut_values = combined_coefs[np.nonzero(combined_coefs)[0]]
     scale_factor = _compute_scale_factor(cut_values, master_scaling_stats)
 
     scaled_summed = summed_coefs * scale_factor
@@ -264,7 +264,7 @@ def add_valid_inequalities(separation_data, subproblem_feasibility=None, callbac
             electricity_demand_sum = scenario_path_separation_data['electricity_demand_cumsum'][numSubterms]
             elec_summed_coefs = scenario_path_separation_data['elec_coef_cumsum'][numSubterms]
             elec_combined_coefs = np.concatenate([elec_summed_coefs, scenario_path_separation_data['elec_storage_coefs']])
-            elec_cut_values = np.concatenate([elec_combined_coefs[np.nonzero(elec_combined_coefs)[0]], [electricity_demand_sum]])
+            elec_cut_values = elec_combined_coefs[np.nonzero(elec_combined_coefs)[0]]
             scale_factor = _compute_scale_factor(elec_cut_values, master_scaling_stats)
             scaled_elec_summed = elec_summed_coefs * scale_factor
             scaled_elec_storage = scenario_path_separation_data['elec_storage_coefs'] * scale_factor
@@ -280,7 +280,7 @@ def add_valid_inequalities(separation_data, subproblem_feasibility=None, callbac
             heat_demand_sum = scenario_path_separation_data['heat_demand_cumsum'][numSubterms]
             heat_summed_coefs = scenario_path_separation_data['heat_coef_cumsum'][numSubterms]
             heat_combined_coefs = np.concatenate([heat_summed_coefs, scenario_path_separation_data['heat_transfer_coefs'] * numSubterms, scenario_path_separation_data['heat_storage_coefs']])
-            heat_cut_values = np.concatenate([heat_combined_coefs[np.nonzero(heat_combined_coefs)[0]], [heat_demand_sum]])
+            heat_cut_values = heat_combined_coefs[np.nonzero(heat_combined_coefs)[0]]
             scale_factor = _compute_scale_factor(heat_cut_values, master_scaling_stats)
             scaled_heat_summed = heat_summed_coefs * scale_factor
             scaled_heat_transfer = scenario_path_separation_data['heat_transfer_coefs'] * (scale_factor * numSubterms)
@@ -443,15 +443,9 @@ def benders_callback(model, where):
         theta_sum = sum(theta_value * scenario_path_probabilities[sp_id] for theta_value, sp_id in zip(theta_values, scenario_path_ids))
         subproblem_obj_sum = sum(subproblem_objectives[sp_id] * scenario_path_probabilities[sp_id] for sp_id in scenario_path_ids)
         upper_bound = current_obj - theta_sum + subproblem_obj_sum
-        cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, call_back_data['master_vars_by_sp'], call_back_data['theta_vars'], call_back_data['master_scaling_stats'], call_back_data['master_model_indices'], call_back_data['theta_model_indices'])
-
         all_var_values = np.array(model.cbGetSolution(call_back_data['all_vars']), dtype=np.float64)
-        cut_expressions = {
-            sp_id: (expr, scale, var_idx, coefs, const)
-            for sp_id, (expr, scale, var_idx, coefs, const) in cut_expressions.items()
-            if np.dot(coefs, all_var_values[var_idx]) + const < -1e-6 * scale
-        }
-        
+        cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, call_back_data['master_vars_by_sp'], call_back_data['theta_vars'], call_back_data['master_scaling_stats'], call_back_data['master_model_indices'], call_back_data['theta_model_indices'], all_var_values)
+
         for cut_expression, *_ in cut_expressions.values():
             model.cbLazy(cut_expression >= 0)
 
@@ -499,10 +493,6 @@ def benders_callback(model, where):
                 f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds",
                 f"Iteration Time: {time.time() - iteration_start_time:.2f} seconds"
             ]
-
-            if valid_inequality_derivation_time > 0:
-                log_lines.append(f"Valid Inequality Derivation Time: {valid_inequality_derivation_time:.2f} seconds")            
-                log_lines.append(f"Number of Valid Inequalities: {len(valid_ineq_cut_expressions)}")
 
             call_back_data['log_file'].write('\n'.join(log_lines) + '\n')
             call_back_data['total_iteration_time'] += time.time() - iteration_start_time
@@ -631,7 +621,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         all_incumbent_feasible = all(incumbent_sp_feasibility.values())
 
         if all_incumbent_feasible:
-            cut_expressions = add_benders_cuts(incumbent_sp_cut_intercepts, incumbent_sp_dual_coefs, incumbent_sp_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices)
+            incumbent_all_var_values = np.zeros(len(nontheta_var_indices) + len(theta_var_indices), dtype=np.float64)
+            incumbent_all_var_values[nontheta_var_indices] = incumbent_master_array
+            cut_expressions = add_benders_cuts(incumbent_sp_cut_intercepts, incumbent_sp_dual_coefs, incumbent_sp_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices, incumbent_all_var_values)
             for sp_id, (cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant) in cut_expressions.items():
                 master_model.addConstr(cut_expression >= 0, name=f"incumbent_opt_cut_{sp_id}")
                 if lp_master_model is not None:
@@ -676,7 +668,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         previous_master_solution = None
 
         prune_inactive_count = 100
-        prune_percentile = 75
+        prune_percentile = 100
         scenario_path_ids = list(scenario_paths.keys())
         scenario_path_prob_array = np.array([scenario_path_probabilities[sp_id] for sp_id in scenario_path_ids], dtype=np.float64)
         all_master_vars = master_model.getVars()
@@ -810,15 +802,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
                 feas_dual_coefs = {sp_id: v for sp_id, v in subproblem_dual_coefs.items() if not subproblem_feasibility[sp_id]}
                 feas_feasibility = {sp_id: False for sp_id in feas_cut_intercepts}
-                cut_expressions = add_benders_cuts(feas_cut_intercepts, feas_dual_coefs, feas_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices)
+                cut_expressions = add_benders_cuts(feas_cut_intercepts, feas_dual_coefs, feas_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices, all_var_values)
             else:
-                cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices)
-
-            cut_expressions = {
-                sp_id: (expr, scale, var_idx, coefs, const)
-                for sp_id, (expr, scale, var_idx, coefs, const) in cut_expressions.items()
-                if np.dot(coefs, all_var_values[var_idx]) + const < -1e-6 * scale
-            }
+                cut_expressions = add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproblem_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices, all_var_values)
 
             for sp_id, (cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant) in cut_expressions.items():
                 cut_name = f'OptimalityCut{sp_id}_{iteration}' if subproblem_feasibility.get(sp_id, False) else f'FeasibilityCut{sp_id}_{iteration}'
@@ -875,10 +861,6 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
             if readded_count > 0:
                 log_lines.append(f"Readded Cuts from Pool: {readded_count}, Pool Size: {len(pruned_cut_data['names'])}")
-
-            if valid_inequality_derivation_time > 0:
-                log_lines.append(f"Valid Inequality Derivation Time: {valid_inequality_derivation_time:.2f} seconds")
-                log_lines.append(f"Number of Valid Inequalities: {len(valid_ineq_cut_expressions)}")
 
             log_file.write('\n'.join(log_lines) + '\n')
 

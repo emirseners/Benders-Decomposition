@@ -223,11 +223,11 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
         model.setParam('NodefileDir', '.')
         model.setParam('FeasibilityTol', 1e-5)
 
-    model.update()
-    model.optimize()
-
     #lp_filename = os.path.join(results_directory, f'{model_name}.lp')
     #model.write(lp_filename)
+    
+    model.update()
+    model.optimize()
 
     if model.status == GRB.INFEASIBLE:
         model.computeIIS()
