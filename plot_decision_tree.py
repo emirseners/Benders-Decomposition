@@ -33,13 +33,13 @@ def read_and_aggregate_capacities(sol_file_path):
             elif technology == 'wind':
                 capacities[node_id][year]['wind'] += wind_capacity * value
             elif technology == 'electricity_storage':
-                capacities[node_id][year]['battery'] += value
+                capacities[node_id][year]['battery'] += 10 * value
             elif technology == 'parabolic_trough':
                 capacities[node_id][year]['parabolic_trough'] += 4.02 * value
             elif technology == 'heat_pump':
                 capacities[node_id][year]['heat_pump'] += value * 246 * 0.001
             elif technology == 'heat_storage':
-                capacities[node_id][year]['heat_storage'] += value
+                capacities[node_id][year]['heat_storage'] += 10 * value
 
     return capacities
 

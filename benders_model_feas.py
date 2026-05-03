@@ -264,7 +264,7 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
         model.setParam('TimeLimit', 86400)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')
-        model.setParam('MIPGap', tolerance / 2)
+        model.setParam('MIPGap', 0.5 * tolerance)
 
     model.update()
 
@@ -308,15 +308,21 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
             master_vars.append(node.e_Carrying[node.stageSubperiods[-2], node.numSubterms])
             master_vars.append(node.h_Carrying[node.stageSubperiods[-2], node.numSubterms])
 
-    _worker_model._master_vars = master_vars
     _worker_model._master_var_names = [var.varName for var in master_vars]
 
     A = _worker_model.getA()
     nonant_indices_list = [var_name_to_idx[name] for name in _worker_model._master_var_names]
     _worker_model._A_master = A[:, nonant_indices_list].tocsr()
-    
     _worker_model._all_rhs = np.array([constr.RHS for constr in all_constrs], dtype=np.float64)
-    _worker_model._all_constrs = all_constrs
+
+    coupling_indices = np.unique(_worker_model._A_master.nonzero()[0])
+    _worker_model._A_coupling = _worker_model._A_master[coupling_indices, :].tocsr()
+    _worker_model._coupling_rhs = _worker_model._all_rhs[coupling_indices]
+
+    _worker_model.remove(master_vars)
+    _worker_model.update()
+    _worker_model._all_constrs = _worker_model.getConstrs()
+    _worker_model._coupling_constrs = [_worker_model._all_constrs[i] for i in coupling_indices]
 
     return _worker_model
 

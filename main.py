@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     tolerance = 0.01
 
-    numSubterms_levels = [1092]
+    numSubterms_levels = [1092, 2184, 4368]
     epsilon_levels = [0]
 
     raw_data = fetch_raw_data()

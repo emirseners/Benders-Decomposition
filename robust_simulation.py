@@ -1,6 +1,5 @@
 import os
 import re
-import csv
 import time
 import numpy as np
 import concurrent.futures
@@ -10,7 +9,7 @@ from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, ext
 
 _worker_state = None
 
-def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities):
+def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities):
     global _worker_state
 
     _worker_state = {
@@ -23,7 +22,7 @@ def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, 
         'total_periods': numStages * numSubperiods,
         'subterm_interval_length': subterm_interval_length,
         'perturbed_subterm_interval_length': perturbed_subterm_interval_length,
-        'epsilon': epsilon,
+        'simulation_epsilon': simulation_epsilon,
         'nominal_e_demand': input_data['electricity_demand'],
         'nominal_h_demand': input_data['heat_demand'],
         'e_demand_std': input_data['electricity_demand_std'],
@@ -51,7 +50,7 @@ def run_single_replication(args):
     nominal_h_demand = ws['nominal_h_demand']
     e_demand_std = ws['e_demand_std']
     h_demand_std = ws['h_demand_std']
-    epsilon = ws['epsilon']
+    simulation_epsilon = ws['simulation_epsilon']
     random_data_sources = ws['random_data']
     node_probabilities = ws['node_probabilities']
 
@@ -71,10 +70,10 @@ def run_single_replication(args):
     for period in range(1, total_periods + 1):
         perturbed_e_demand.append([max(0, nominal_e_demand[period][p] + random_number_stream['electricity_demand'][period][p] * e_demand_std[period][p]) for p in range(numSubterms)])
         perturbed_h_demand.append([max(0, nominal_h_demand[period][p] + random_number_stream['heat_demand'][period][p] * h_demand_std[period][p]) for p in range(numSubterms)])
-        robust_e_demand.append([nominal_e_demand[period][p] + epsilon * e_demand_std[period][p] for p in range(numSubterms)])
-        robust_h_demand.append([nominal_h_demand[period][p] + epsilon * h_demand_std[period][p] for p in range(numSubterms)])
+        robust_e_demand.append([nominal_e_demand[period][p] + simulation_epsilon * e_demand_std[period][p] for p in range(numSubterms)])
+        robust_h_demand.append([nominal_h_demand[period][p] + simulation_epsilon * h_demand_std[period][p] for p in range(numSubterms)])
 
-    robust_z = {'solar': -epsilon, 'wind': -epsilon, 'parabolic_trough': -epsilon, 'heat_pump': -epsilon}
+    robust_z = {'solar': -simulation_epsilon, 'wind': -simulation_epsilon, 'parabolic_trough': -simulation_epsilon, 'heat_pump': -simulation_epsilon}
 
     def get_perturbation_z(period, subterm_index):
         return {
@@ -90,6 +89,7 @@ def run_single_replication(args):
     for stage_no in range(1, numStages + 1):
         for solve_node_id in stage_node_ranges[stage_no]:
             solve_node = scenario_tree.nodes[solve_node_id]
+            node_prob = node_probabilities[solve_node_id]
 
             model = Model('Dispatch')
             model.setParam('OutputFlag', 1)
@@ -155,8 +155,8 @@ def run_single_replication(args):
                             mapped_stage = ((mapped_period - 1) // numSubperiods) + 1
                             if mapped_period > total_periods or (mapped_period > period and mapped_stage != stage_no):
                                 solve_node.DeactivateSlot(model, s)
-                                if s == last_active_slot:
-                                    last_active_slot -= 1
+                                if s <= last_active_slot:
+                                    last_active_slot = s - 1
                             else:
                                 if mapped_period != slot_mapped_periods[s]:
                                     solve_node.UpdateSubperiodData(model, s, mapped_period, input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['discount_factor'])
@@ -168,16 +168,14 @@ def run_single_replication(args):
                                 else:
                                     solve_node.UpdateDemandData(model, s, mapped_period, mapped_subterm, robust_e_demand, robust_h_demand, perturbation_z=robust_z)
 
-                    if solve_node.e_Carrying[last_active_slot].Obj != -1e-4:
-                        solve_node.e_Carrying[last_active_slot].Obj = -1e-4
-                        solve_node.h_Carrying[last_active_slot].Obj = -1e-4
+                    solve_node.e_Carrying[last_active_slot].Obj = -0.01 * solve_node.e_Purchase[last_active_slot].Obj
+                    solve_node.h_Carrying[last_active_slot].Obj = -0.01 * solve_node.h_Purchase[last_active_slot].Obj
 
                     model.update()
                     model.optimize()
 
                     e_purch = solve_node.e_Purchase[1].X
                     h_purch = solve_node.h_Purchase[1].X
-                    node_prob = node_probabilities[solve_node_id]
 
                     stats['e_purchase'] += e_purch * node_prob
                     stats['h_purchase'] += h_purch * node_prob
@@ -384,7 +382,7 @@ class ScenarioNodeDispatch:
                 cop = ancestor_tech.periodic_heat_transfer_cop[v][p]
                 if perturbation_z is not None and ancestor_tech.periodic_heat_transfer_cop_std is not None:
                     z = perturbation_z.get(tech.tree.type, 0)
-                    cop = max(1e-6, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
+                    cop = max(1e-4, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
                 cop_coeffs[(i, tech, v, t)] = cop
 
             self.demand_e_constrs[s] = model.addConstr(quicksum((-1 / cop_coeffs[(i, tech, v, t)]) * self.y_Transfer[s, tech.tree.type, v, t] for (i, tech, v, t) in valid_ht_keys) + self.e_Satisfied[s] >= electricity_demand[subperiod][p], name=f'N{self.id}_Demand_Electricity_{s}')
@@ -471,7 +469,7 @@ class ScenarioNodeDispatch:
                 cop = ancestor_tech.periodic_heat_transfer_cop[v][p]
                 if perturbation_z is not None and ancestor_tech.periodic_heat_transfer_cop_std is not None:
                     z = perturbation_z.get(tech.tree.type, 0)
-                    cop = max(1e-6, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
+                    cop = max(1e-4, cop + z * ancestor_tech.periodic_heat_transfer_cop_std[v][p])
                 model.chgCoeff(self.demand_e_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], (-1.0 / cop))
             else:
                 model.chgCoeff(self.demand_e_constrs[s], self.y_Transfer[s, tech.tree.type, v, t], 0.0)
@@ -509,15 +507,16 @@ if __name__ == '__main__':
 
     subterm_interval_length = 12
     perturbed_subterm_interval_length = 3
-    epsilon = 0
-    folder_suffix = f"eps({epsilon})_base"
+    investment_epsilon = 0
+    simulation_epsilon = 0
+    folder_suffix = f"eps({investment_epsilon})_base"
     numReplications = 100
 
+    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
+    results_sol_path = os.path.join(results_directory, 'Results.sol')
     num_workers = min(os.cpu_count(), numReplications)
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms, folder_suffix=folder_suffix)
-
-    results_sol_path = os.path.join(input_data['results_directory'], 'Results.sol')
+    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, folder_suffix=folder_suffix)
 
     scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, dispatch_flag=True, solar_periodic_generation_std=input_data['solar_periodic_generation_std'], wind_periodic_generation_std=input_data['wind_periodic_generation_std'], parabolic_trough_periodic_generation_std=input_data['parabolic_trough_periodic_generation_std'], heat_pump_cop_std=input_data['heat_pump_cop_std'])
 
@@ -576,7 +575,7 @@ if __name__ == '__main__':
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_workers,
         initializer=_init_replication_worker,
-        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, epsilon, node_probabilities)
+        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities)
     ) as executor:
         futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
 
@@ -594,13 +593,44 @@ if __name__ == '__main__':
                 h_violation_reps += 1
             print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
 
-    final_results_csv_path = os.path.join(input_data['results_directory'], 'simulation_results.csv')
-    file_exists = os.path.isfile(final_results_csv_path)
-    with open(final_results_csv_path, 'a', newline='') as csv_file:
-        csv_writer = csv.writer(csv_file)
-        if not file_exists:
-            csv_writer.writerow(['model', 'electricity purchase', 'heat purchase', 'electricity cost', 'heat cost', 'electricity violation', 'heat violation', 'electricity violation replications', 'heat violation replications'])
-            csv_writer.writerow(optimal_results)
-        csv_writer.writerow([f'simeps({epsilon})_{perturbed_subterm_interval_length}_{subterm_interval_length}', totals['e_purchase']/numReplications, totals['h_purchase']/numReplications, totals['e_cost']/numReplications, totals['h_cost']/numReplications, (100 * (totals['e_violation']/numReplications) / sum(input_data['electricity_demand'][-1])), (100 * (totals['h_violation']/numReplications) / sum(input_data['heat_demand'][-1])), e_violation_reps, h_violation_reps])
+    total_execution_time = time.time() - execution_start_time
+    electricity_violation_percentage = (100 * (totals['e_violation'] / numReplications) / sum(input_data['electricity_demand'][-1]))
+    heat_violation_percentage = (100 * (totals['h_violation'] / numReplications) / sum(input_data['heat_demand'][-1]))
+    simulation_log_path = os.path.join(input_data['results_directory'], 'SimulationLog.txt')
+    write_optimal_results = not os.path.exists(simulation_log_path)
 
-    print(f"Total Execution Time: {time.time() - execution_start_time:.2f} seconds")
+    with open(simulation_log_path, 'a') as log_file:
+        if write_optimal_results:
+            log_file.write('\n'.join([
+                '-' * 30,
+                'Optimal Benchmark Results',
+                f"Average electricity purchase: {optimal_results[1]:.2f}",
+                f"Average heat purchase: {optimal_results[2]:.2f}",
+                f"Average electricity cost: {optimal_results[3]:.2f}",
+                f"Average heat cost: {optimal_results[4]:.2f}",
+                f"Final-period electricity violation (%): {optimal_results[5]:.4f}",
+                f"Final-period heat violation (%): {optimal_results[6]:.4f}",
+                f"Replications with electricity violation: {optimal_results[7]}",
+                f"Replications with heat violation: {optimal_results[8]}",
+                '',
+            ]) + '\n')
+
+        log_file.write('\n'.join([
+            '-' * 30,
+            'Simulation Run Results',
+            f"Investment epsilon: {investment_epsilon}",
+            f"Simulation epsilon: {simulation_epsilon}",
+            f"Perturbed window length: {perturbed_subterm_interval_length}",
+            f"Dispatch window length: {subterm_interval_length}",
+            f"Number of replications: {numReplications}",
+            f"Average electricity purchase: {totals['e_purchase'] / numReplications:.2f}",
+            f"Average heat purchase: {totals['h_purchase'] / numReplications:.2f}",
+            f"Average electricity cost: {totals['e_cost'] / numReplications:.2f}",
+            f"Average heat cost: {totals['h_cost'] / numReplications:.2f}",
+            f"Final-period electricity violation (%): {electricity_violation_percentage:.4f}",
+            f"Final-period heat violation (%): {heat_violation_percentage:.4f}",
+            f"Replications with electricity violation: {e_violation_reps}",
+            f"Replications with heat violation: {h_violation_reps}",
+            f"Total execution time: {total_execution_time:.2f} seconds",
+            '',
+        ]) + '\n')

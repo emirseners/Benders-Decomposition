@@ -35,9 +35,11 @@ def get_master_var_names():
 
 def solve_subproblem(master_solution):
     _worker_model = _cached_worker_model
+    master_solution = np.where(np.abs(master_solution) < 1e-12, 0.0, master_solution)
 
-    _worker_model.setAttr('LB', _worker_model._master_vars, master_solution)
-    _worker_model.setAttr('UB', _worker_model._master_vars, master_solution)
+    delta = np.asarray(_worker_model._A_coupling @ master_solution)
+    new_rhs = _worker_model._coupling_rhs - delta
+    _worker_model.setAttr('RHS', _worker_model._coupling_constrs, new_rhs.tolist())
 
     _worker_model.optimize()
 
@@ -153,7 +155,9 @@ def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproble
         cut_intercept = subproblem_cut_intercepts[sp_id]
         dual_coefs = subproblem_dual_coefs[sp_id]
         #significant_idx = np.nonzero(dual_coefs)[0]
-        significant_idx = np.where(np.abs(dual_coefs) > 1e-6)[0]
+        abs_dual_coefs = np.abs(dual_coefs)
+        max_abs = abs_dual_coefs.max() if abs_dual_coefs.size else 0.0
+        significant_idx = np.where(abs_dual_coefs > max(1e-12, 1e-10 * max_abs))[0]
         significant_dual_coefs = dual_coefs[significant_idx]
         length_significant = len(significant_idx)
         if is_feasible:
@@ -532,7 +536,7 @@ def setup_master_variable_mappings(master_model, scenario_paths, sp_master_var_n
     theta_model_indices = {sp_id: theta_vars[sp_id].index for sp_id in scenario_paths}
 
     if separation_data is not None:
-        for path_id, scenario_path_data in separation_data.items():
+        for _, scenario_path_data in separation_data.items():
             scenario_path_data['elec_gen_vars'] = [var_cache[name] for name in scenario_path_data['elec_gen_var_names']]
             scenario_path_data['heat_gen_vars'] = [var_cache[name] for name in scenario_path_data['heat_gen_var_names']]
             scenario_path_data['elec_storage_vars'] = [var_cache[name] for name in scenario_path_data['elec_storage_var_names']]
@@ -668,7 +672,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         previous_master_solution = None
 
         prune_inactive_count = 100
-        prune_percentile = 100
+        prune_percentile = 75
         scenario_path_ids = list(scenario_paths.keys())
         scenario_path_prob_array = np.array([scenario_path_probabilities[sp_id] for sp_id in scenario_path_ids], dtype=np.float64)
         all_master_vars = master_model.getVars()
@@ -692,17 +696,23 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
         while True:
             iteration += 1
-            master_start_time = time.time()
             master_model.optimize()
-            master_execution_time = time.time() - master_start_time
+            master_execution_time = master_model.Runtime
             total_master_time += master_execution_time
+
+            all_var_values = np.array(master_model.getAttr('X', all_master_vars), dtype=np.float64)
+            master_solution_array = all_var_values[nontheta_var_indices]
+
+            if previous_master_solution is not None and not continuous_flag:
+                if np.array_equal(master_solution_array, previous_master_solution):
+                    current_mipgap = master_model.Params.MIPGap
+                    master_model.setParam('MIPGap', float(current_mipgap) * 0.8)
+            previous_master_solution = master_solution_array
 
             lower_bound = master_model.ObjVal if continuous_flag else master_model.ObjBound
             best_lower_bound = max(best_lower_bound, lower_bound)
             if lp_phase:
                 best_lb_array.append(best_lower_bound)
-
-            all_var_values = np.array(master_model.getAttr('X', all_master_vars), dtype=np.float64)
 
             if generated_cuts_data['names']:
                 if continuous_flag or lp_master_model is None:
@@ -774,8 +784,6 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                         pruned_cuts_matrix = None
                         pruned_cuts_constants_array = None
 
-            master_solution_array = all_var_values[nontheta_var_indices]
-
             subproblem_start_time = time.time()
             futures = {sp_id: executors[sp_id].submit(solve_subproblem, master_solution_array[master_dv_indices[sp_id]]) for sp_id in scenario_path_ids}
             subproblem_results = {sp_id: future.result() for sp_id, future in futures.items()}
@@ -832,12 +840,6 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                 valid_inequality_derivation_time = time.time() - valid_inequality_start_time
                 total_valid_inequality_time += valid_inequality_derivation_time
                 valid_inequalities_added += len(valid_ineq_cut_expressions)
-
-            if previous_master_solution is not None and not continuous_flag:
-                if np.array_equal(master_solution_array, previous_master_solution):
-                    current_mipgap = master_model.Params.MIPGap
-                    master_model.setParam('MIPGap', float(current_mipgap) * 0.8)
-            previous_master_solution = master_solution_array
 
             if all_feasible and upper_bound < best_upper_bound:
                 best_upper_bound = upper_bound
