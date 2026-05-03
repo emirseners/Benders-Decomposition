@@ -91,7 +91,7 @@ class ScenarioNode:
         for tech in self.techNodeList:
             for v in range(tech.NumVersion):
                 for t in self.stageSubperiods:
-                    self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
+                    self.v_Plus[tech.tree.type,v,t].Obj = 0.001 * self.probability * (tech.cost[v] * (discount_factor**(t)) + tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))]))
 
     def AddSubproblemObjectiveCoefficients(self, electricity_purchasing_cost, heat_purchasing_cost, discount_factor, prob_flag):
         for t in self.stageSubperiods:
@@ -102,8 +102,8 @@ class ScenarioNode:
                 e_cost_t *= self.probability
                 h_cost_t *= self.probability
             for p in self.stageSubterms:
-                self.e_Purchase[t,p].Obj = e_cost_t
-                self.h_Purchase[t,p].Obj = h_cost_t
+                self.e_Purchase[t,p].Obj = 0.001 * e_cost_t
+                self.h_Purchase[t,p].Obj = 0.001 * h_cost_t
 
     def AddSubproblemDemandConstraints(self, model, electricity_demand, heat_demand):
         for t_ in self.stageSubperiods:
@@ -147,7 +147,7 @@ class ScenarioNode:
     def AddBudgetConstraints(self, model, budget):
         for t in self.stageSubperiods:
             if budget[t] is not None:
-                model.addConstr(-quicksum(0.01 * tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) >= -0.01 * budget[t], name = f'N{self.id}_Budget_{t}')
+                model.addConstr(-quicksum(1e-6 * tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) >= -1e-6 * budget[t], name = f'N{self.id}_Budget_{t}')
 
     def AddSpatialConstraints(self, model, spatial_limit):
         if spatial_limit is not None:
@@ -327,7 +327,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
 
     log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
 
-    #_worker_model.setParam('LogFile', log_file_path)
+    _worker_model.setParam('LogFile', log_file_path)
     _worker_model.setParam('Threads', threads)
     _worker_model.setParam('LogToConsole', 0)
     _worker_model.setParam('InfUnbdInfo', 1)

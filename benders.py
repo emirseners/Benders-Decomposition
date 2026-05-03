@@ -35,10 +35,10 @@ def get_master_var_names():
 
 def solve_subproblem(master_solution):
     _worker_model = _cached_worker_model
-    master_solution = np.where(np.abs(master_solution) < 1e-12, 0.0, master_solution)
 
     delta = np.asarray(_worker_model._A_coupling @ master_solution)
     new_rhs = _worker_model._coupling_rhs - delta
+    new_rhs = np.where(np.abs(new_rhs) < 1e-10, 0.0, new_rhs)
     _worker_model.setAttr('RHS', _worker_model._coupling_constrs, new_rhs.tolist())
 
     _worker_model.optimize()
@@ -87,6 +87,9 @@ def _compute_scale_factor(cut_values, master_scaling_stats):
     else:
         if cut_max * scale_factor > master_max:
             scale_factor = master_max / cut_max
+    
+    if cut_min * scale_factor < 1e-5:
+        scale_factor = 1e-5 / cut_min
 
     return scale_factor
 
@@ -706,7 +709,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             if previous_master_solution is not None and not continuous_flag:
                 if np.array_equal(master_solution_array, previous_master_solution):
                     current_mipgap = master_model.Params.MIPGap
-                    master_model.setParam('MIPGap', float(current_mipgap) * 0.8)
+                    master_model.setParam('MIPGap', float(current_mipgap) * 0.9)
             previous_master_solution = master_solution_array
 
             lower_bound = master_model.ObjVal if continuous_flag else master_model.ObjBound
@@ -806,7 +809,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             upper_bound = master_model.ObjVal - theta_sum + np.dot(sp_objectives_array, scenario_path_prob_array)
             all_feasible = all(subproblem_feasibility.values())
 
-            if not lp_phase and not continuous_flag and not all_feasible:
+            if not lp_phase and not continuous_flag and not all_feasible and sum(subproblem_feasibility.values()) >= len(subproblem_feasibility) / 2:
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
                 feas_dual_coefs = {sp_id: v for sp_id, v in subproblem_dual_coefs.items() if not subproblem_feasibility[sp_id]}
                 feas_feasibility = {sp_id: False for sp_id in feas_cut_intercepts}

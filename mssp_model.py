@@ -82,12 +82,12 @@ class ScenarioNodeMSSP:
         for tech in self.techNodeList:
             for v in range(tech.NumVersion):
                 for t in self.stageSubperiods:
-                    self.v_Plus[tech.tree.type,v,t].Obj = self.probability * tech.cost[v] * (discount_factor**(t)) + self.probability * tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))])
+                    self.v_Plus[tech.tree.type,v,t].Obj = 0.001 * self.probability * (tech.cost[v] * (discount_factor**(t)) + tech.OMcost[v] * ((tech.OMcostchangebyyear[v])**(t)) * sum([discount_factor**(t_) for t_ in range(t, min(t + tech.lifetime[v], self.tree.numStages * self.tree.numSubperiods+1))]))
 
         for t in self.stageSubperiods:
             for p in self.stageSubterms:
-                self.e_Purchase[t,p].Obj = self.probability * electricity_purchasing_cost[t] * (discount_factor**(t))
-                self.h_Purchase[t,p].Obj = self.probability * heat_purchasing_cost[t] * (discount_factor**(t))
+                self.e_Purchase[t,p].Obj = 0.001 * self.probability * electricity_purchasing_cost[t] * (discount_factor**(t))
+                self.h_Purchase[t,p].Obj = 0.001 * self.probability * heat_purchasing_cost[t] * (discount_factor**(t))
 
     def AddDemandConstraints(self, model, electricity_demand, heat_demand):
         for t_ in self.stageSubperiods:
@@ -131,7 +131,7 @@ class ScenarioNodeMSSP:
     def AddBudgetConstraints(self, model, budget):
         for t in self.stageSubperiods:
             if budget[t] is not None:
-                model.addConstr(quicksum(0.01 * tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) <= 0.01 * budget[t], name = f'N{self.id}_Budget_{t}')
+                model.addConstr(quicksum(1e-6 * tech.cost[v] * self.v_Plus[tech.tree.type,v,t] for tech in self.techNodeList for v in range(tech.NumVersion)) <= 1e-6 * budget[t], name = f'N{self.id}_Budget_{t}')
 
     def AddSpatialConstraints(self, model, spatial_limit):
         for t_ in self.stageSubperiods:

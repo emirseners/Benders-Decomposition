@@ -20,71 +20,73 @@ def fetch_raw_data():
     cluster_std_xls = pd.ExcelFile(os.path.join('Data', 'Operational Data Cluster Std.xlsx'))
 
     electricity_demand_2023 = nominal_xls.parse('2023 Hourly Electricity Demand')['Consumption (kWh/h)']
-    electricity_demand_2023 = electricity_demand_2023.where(electricity_demand_2023 >= 100).interpolate(method='linear').bfill().ffill().tolist()
+    electricity_demand_2023 = (electricity_demand_2023.where(electricity_demand_2023 >= 100).interpolate(method='linear').bfill().ffill() / 1000.0).tolist()
     electricity_demand_2024 = nominal_xls.parse('2024 Hourly Electricity Demand')['Consumption (kWh/h)']
-    electricity_demand_2024 = electricity_demand_2024.where(electricity_demand_2024 >= 100).interpolate(method='linear').bfill().ffill().tolist()
+    electricity_demand_2024 = (electricity_demand_2024.where(electricity_demand_2024 >= 100).interpolate(method='linear').bfill().ffill() / 1000.0).tolist()
 
     daily_std_2023 = daily_std_xls.parse('2023 Hourly Electricity Demand').fillna(0.0)
     cluster_std_2023 = cluster_std_xls.parse('2023 Hourly Electricity Demand').fillna(0.0)
     sigma_d_2023_elec = daily_std_2023.iloc[:, 0].values
     sigma_c_2023_elec = cluster_std_2023.iloc[:, 0].values
-    combined_std_2023_elec = (sigma_d_2023_elec * sigma_c_2023_elec)[24:]
+    combined_std_2023_elec = (sigma_d_2023_elec * sigma_c_2023_elec)[24:] / 1000.0
 
     daily_std_2024 = daily_std_xls.parse('2024 Hourly Electricity Demand').fillna(0.0)
     cluster_std_2024 = cluster_std_xls.parse('2024 Hourly Electricity Demand').fillna(0.0)
     sigma_d_2024_elec = daily_std_2024.iloc[:, 0].values
     sigma_c_2024_elec = cluster_std_2024.iloc[:, 0].values
-    combined_std_2024_elec = (sigma_d_2024_elec * sigma_c_2024_elec)[:(8760-24)]
+    combined_std_2024_elec = (sigma_d_2024_elec * sigma_c_2024_elec)[:(8760-24)] / 1000.0
 
     base_electricity_demand = [(val_2023 + val_2024) / 2 for val_2023, val_2024 in zip(electricity_demand_2023[24:], electricity_demand_2024[:(8760-24)])]
     base_electricity_demand_std = [0.5 * np.sqrt(s1**2 + s2**2) for s1, s2 in zip(combined_std_2023_elec, combined_std_2024_elec)]
 
     heat_demand_2024 = nominal_xls.parse('2024 Hourly Heat Demand')['Consumption (kWh/h)']
-    heat_demand_2024 = heat_demand_2024.where(heat_demand_2024 >= 100).interpolate(method='linear').bfill().ffill().tolist()
+    heat_demand_2024 = (heat_demand_2024.where(heat_demand_2024 >= 100).interpolate(method='linear').bfill().ffill() / 1000.0).tolist()
     base_heat_demand = heat_demand_2024[:(8760-24)]
 
     daily_std_2024_heat = daily_std_xls.parse('2024 Hourly Heat Demand').fillna(0.0)
     cluster_std_2024_heat = cluster_std_xls.parse('2024 Hourly Heat Demand').fillna(0.0)
     sigma_d_2024_heat = daily_std_2024_heat.iloc[:, 0].values
     sigma_c_2024_heat = cluster_std_2024_heat.iloc[:, 0].values
-    base_heat_demand_std = (sigma_d_2024_heat * sigma_c_2024_heat)[:(8760-24)]
+    base_heat_demand_std = (sigma_d_2024_heat * sigma_c_2024_heat)[:(8760-24)] / 1000.0
 
     solar_xls = pd.ExcelFile(os.path.join('Data', 'Solar Power.xlsx'))
     solar_initial = solar_xls.parse('Initial values')
     solar_advancements = {1: solar_xls.parse('Advancements1'), 2: solar_xls.parse('Advancements2'), 3: solar_xls.parse('Advancements3')}
-    nominal_solar = nominal_xls.parse('solar').values[:(8760-24)]
+    nominal_solar = nominal_xls.parse('solar').values[:(8760-24)] / 1000.0
     daily_std_solar = daily_std_xls.parse('solar').fillna(0.0)
     cluster_std_solar = cluster_std_xls.parse('solar').fillna(0.0)
-    combined_std_solar = (daily_std_solar.values * cluster_std_solar.values)[:(8760-24)]
+    combined_std_solar = (daily_std_solar.values * cluster_std_solar.values)[:(8760-24)] / 1000.0
     base_solar_periodic_generation = nominal_solar.T.tolist()
     base_solar_periodic_generation_std = combined_std_solar.T.tolist()
 
     wind_xls = pd.ExcelFile(os.path.join('Data', 'Wind Power.xlsx'))
     wind_initial = wind_xls.parse('Initial values')
     wind_advancements = {1: wind_xls.parse('Advancements1')}
-    nominal_wind = nominal_xls.parse('wind').values[:(8760-24)]
+    nominal_wind = nominal_xls.parse('wind').values[:(8760-24)] / 1000.0
     daily_std_wind = daily_std_xls.parse('wind').fillna(0.0)
     cluster_std_wind = cluster_std_xls.parse('wind').fillna(0.0)
-    combined_std_wind = (daily_std_wind.values * cluster_std_wind.values)[:(8760-24)]
+    combined_std_wind = (daily_std_wind.values * cluster_std_wind.values)[:(8760-24)] / 1000.0
     base_wind_periodic_generation = nominal_wind.T.tolist()
     base_wind_periodic_generation_std = combined_std_wind.T.tolist()
 
     el_storage_xls = pd.ExcelFile(os.path.join('Data', 'Electricity Storage.xlsx'))
     electricity_storage_initial = el_storage_xls.parse('Initial values')
+    electricity_storage_initial.loc[electricity_storage_initial['Metrics'] == 'Electricity storage capacity', [c for c in electricity_storage_initial.columns if c != 'Metrics']] /= 1000.0
     electricity_storage_advancements = {1: el_storage_xls.parse('Advancements1'), 2: el_storage_xls.parse('Advancements2'), 3: el_storage_xls.parse('Advancements3')}
 
     pt_xls = pd.ExcelFile(os.path.join('Data', 'Parabolic Trough.xlsx'))
     parabolic_trough_initial = pt_xls.parse('Initial values')
     parabolic_trough_advancements = {1: pt_xls.parse('Advancements1')}
-    nominal_pt = nominal_xls.parse('parabolic trough').values[:(8760-24)]
+    nominal_pt = nominal_xls.parse('parabolic trough').values[:(8760-24)] / 1000.0
     daily_std_pt = daily_std_xls.parse('parabolic trough').fillna(0.0)
     cluster_std_pt = cluster_std_xls.parse('parabolic trough').fillna(0.0)
-    combined_std_pt = (daily_std_pt.values * cluster_std_pt.values)[:(8760-24)]
+    combined_std_pt = (daily_std_pt.values * cluster_std_pt.values)[:(8760-24)] / 1000.0
     base_parabolic_trough_periodic_generation = nominal_pt.T.tolist()
     base_parabolic_trough_periodic_generation_std = combined_std_pt.T.tolist()
 
     hp_xls = pd.ExcelFile(os.path.join('Data', 'Heat Pump.xlsx'))
     heat_pump_initial = hp_xls.parse('Initial values')
+    heat_pump_initial.loc[heat_pump_initial['Metrics'] == 'Heat transfer capacity', [c for c in heat_pump_initial.columns if c != 'Metrics']] /= 1000.0
     heat_pump_advancements = {1: hp_xls.parse('Advancements1')}
     nominal_hp = nominal_xls.parse('heat pump').values[:(8760-24)]
     daily_std_hp = daily_std_xls.parse('heat pump').fillna(0.0)
@@ -95,6 +97,7 @@ def fetch_raw_data():
 
     hs_xls = pd.ExcelFile(os.path.join('Data', 'Heat Storage.xlsx'))
     heat_storage_initial = hs_xls.parse('Initial values')
+    heat_storage_initial.loc[heat_storage_initial['Metrics'] == 'Heat storage capacity', [c for c in heat_storage_initial.columns if c != 'Metrics']] /= 1000.0
     heat_storage_advancements = {1: hs_xls.parse('Advancements1')}
 
     return dict(
@@ -143,8 +146,8 @@ def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None, 
     heat_pump_cop_std = [aggregating_std_cop(row, subterm_length) for row in raw_data['base_heat_pump_cop_std']]
     heat_pump_cop = [[max(1e-4, nom - epsilon * std) for nom, std in zip(n_row, s_row)] for n_row, s_row in zip(heat_pump_cop_nominal, heat_pump_cop_std)]
 
-    electricity_purchasing_cost = [0.144 for _ in range(numStages*numSubperiods+1)]
-    heat_purchasing_cost = [0.0374 for _ in range(numStages*numSubperiods+1)]
+    electricity_purchasing_cost = [144.0 for _ in range(numStages*numSubperiods+1)]
+    heat_purchasing_cost = [37.4 for _ in range(numStages*numSubperiods+1)]
     emission_limits = [None for _ in range(numStages*numSubperiods)] + [0]
     budget = [0, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000]
 

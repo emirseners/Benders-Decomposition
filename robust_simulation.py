@@ -183,10 +183,10 @@ def run_single_replication(args):
                     stats['h_cost'] += h_purch * solve_node.h_Purchase[1].Obj
 
                     if period == total_periods:
-                        if e_purch > 1e-5:
+                        if e_purch > 1e-8:
                             stats['e_violation'] += e_purch * node_prob
                             stats['e_violation_count'] += 1
-                        if h_purch > 1e-5:
+                        if h_purch > 1e-8:
                             stats['h_violation'] += h_purch * node_prob
                             stats['h_violation_count'] += 1
 
@@ -368,8 +368,8 @@ class ScenarioNodeDispatch:
             p = subterms_in_window[s-1] - 1
 
             if self.id != 0:
-                self.e_Purchase[s].Obj = self.probability * electricity_purchasing_cost[subperiod] * (discount_factor ** subperiod)
-                self.h_Purchase[s].Obj = self.probability * heat_purchasing_cost[subperiod] * (discount_factor ** subperiod)
+                self.e_Purchase[s].Obj = 0.001 * self.probability * electricity_purchasing_cost[subperiod] * (discount_factor ** subperiod)
+                self.h_Purchase[s].Obj = 0.001 * self.probability * heat_purchasing_cost[subperiod] * (discount_factor ** subperiod)
 
             gen_e = self.ComputeElectricityGeneration(subperiod, p, perturbation_z=perturbation_z)
             self.demand_e_gen_constrs[s] = model.addConstr(self.e_Purchase[s] - self.e_Charging[s] + self.e_Discharging[s] - self.e_Satisfied[s] >= -gen_e, name=f'N{self.id}_Electricity_Demand_Met_by_Generation_Inventory_{s}')
@@ -426,8 +426,8 @@ class ScenarioNodeDispatch:
 
     def UpdateSubperiodData(self, model, s, mapped_subperiod, electricity_purchasing_cost, heat_purchasing_cost, discount_factor):
         if self.id != 0:
-            self.e_Purchase[s].Obj = self.probability * electricity_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
-            self.h_Purchase[s].Obj = self.probability * heat_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
+            self.e_Purchase[s].Obj = 0.001 * self.probability * electricity_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
+            self.h_Purchase[s].Obj = 0.001 * self.probability * heat_purchasing_cost[mapped_subperiod] * (discount_factor ** mapped_subperiod)
 
         all_ht_keys = self.GetAllHeatTransferKeys()
         valid_ht_keys = set()
@@ -565,8 +565,8 @@ if __name__ == '__main__':
         node_prob = node_probabilities[node_id]
         optimal_results[1] += values['e'] * node_prob
         optimal_results[2] += values['h'] * node_prob
-        optimal_results[3] += values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
-        optimal_results[4] += values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+        optimal_results[3] += 0.001 * values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+        optimal_results[4] += 0.001 * values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
 
     totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
     e_violation_reps = 0
