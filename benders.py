@@ -38,7 +38,7 @@ def solve_subproblem(master_solution):
 
     delta = np.asarray(_worker_model._A_coupling @ master_solution)
     new_rhs = _worker_model._coupling_rhs - delta
-    new_rhs = np.where(np.abs(new_rhs) < 1e-10, 0.0, new_rhs)
+    new_rhs = np.where(np.abs(new_rhs) < 1e-12, 0.0, new_rhs)
     _worker_model.setAttr('RHS', _worker_model._coupling_constrs, new_rhs.tolist())
 
     _worker_model.optimize()
@@ -160,7 +160,7 @@ def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproble
         #significant_idx = np.nonzero(dual_coefs)[0]
         abs_dual_coefs = np.abs(dual_coefs)
         max_abs = abs_dual_coefs.max() if abs_dual_coefs.size else 0.0
-        significant_idx = np.where(abs_dual_coefs > max(1e-12, 1e-10 * max_abs))[0]
+        significant_idx = np.where(abs_dual_coefs > max(1e-12, 1e-12 * max_abs))[0]
         significant_dual_coefs = dual_coefs[significant_idx]
         length_significant = len(significant_idx)
         if is_feasible:
@@ -176,6 +176,13 @@ def add_benders_cuts(subproblem_cut_intercepts, subproblem_dual_coefs, subproble
         slack = np.dot(cut_coefs, all_var_values[cut_var_indices]) + cut_constant
         if slack >= -1e-6 * scale_factor:
             continue
+
+        if slack > -1e-4:
+            factor = -1e-4 / slack
+            scale_factor *= factor
+            cut_coefs = cut_coefs * factor
+            cut_constant *= factor
+            expr = expr * factor
 
         cut_expressions[sp_id] = (expr, scale_factor, cut_var_indices, cut_coefs, cut_constant)
 
@@ -811,7 +818,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             upper_bound = master_model.ObjVal - theta_sum + np.dot(sp_objectives_array, scenario_path_prob_array)
             all_feasible = all(subproblem_feasibility.values())
 
-            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 50
+            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 100
             post_incumbent = last_incumbent_iteration is not None and (iteration - last_incumbent_iteration) <= 10
             if not lp_phase and not continuous_flag and not all_feasible and not (mip_warmup or post_incumbent):
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
