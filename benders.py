@@ -696,6 +696,8 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
         best_lb_array = deque([None]*51, maxlen=51)
         all_ub_found = []
+        lp_phase_iterations = None
+        last_incumbent_iteration = None
 
         while True:
             iteration += 1
@@ -809,7 +811,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             upper_bound = master_model.ObjVal - theta_sum + np.dot(sp_objectives_array, scenario_path_prob_array)
             all_feasible = all(subproblem_feasibility.values())
 
-            if not lp_phase and not continuous_flag and not all_feasible and sum(subproblem_feasibility.values()) >= len(subproblem_feasibility) / 2:
+            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 50
+            post_incumbent = last_incumbent_iteration is not None and (iteration - last_incumbent_iteration) <= 10
+            if not lp_phase and not continuous_flag and not all_feasible and not (mip_warmup or post_incumbent):
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
                 feas_dual_coefs = {sp_id: v for sp_id, v in subproblem_dual_coefs.items() if not subproblem_feasibility[sp_id]}
                 feas_feasibility = {sp_id: False for sp_id in feas_cut_intercepts}
@@ -863,6 +867,8 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
             if all_feasible:
                 all_ub_found.append([iteration, round(best_lower_bound), round(upper_bound), (100 * gap)])
+                if not lp_phase:
+                    last_incumbent_iteration = iteration
 
             if readded_count > 0:
                 log_lines.append(f"Readded Cuts from Pool: {readded_count}, Pool Size: {len(pruned_cut_data['names'])}")
