@@ -45,13 +45,15 @@ def obtain_incumbent(numStages, numSubperiods, numSubterms, numMultipliers, inpu
     
     worst_scenario_paths, worst_scenario_path_probabilities = extract_scenario_paths_and_probabilities(worst_scenario_path_scenario_tree)
     
-    log_file = open(os.path.join(input_data['results_directory'], 'IncumbentBendersLog.txt'), 'w')
+    log_file = open(os.path.join(input_data['results_directory'], 'IncumbentBendersLog.csv'), 'w', newline='')
 
     solution = run_benders(numStages, numSubperiods, numSubterms, worst_scenario_path_scenario_tree, worst_scenario_path_initial_tech,
                            input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'], input_data['budget'],
                            input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'], input_data['results_directory'],
                            log_file, input_data['discount_factor'], worst_scenario_paths, worst_scenario_path_probabilities, tolerance,
                            benders_without_feasibility_flag, False, False, True, False, 4, 1, None, True)
+
+    log_file.close()
 
     incumbent_solution = {}
     

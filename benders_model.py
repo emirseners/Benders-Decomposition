@@ -284,9 +284,8 @@ def MasterProblemModel(scenarioTree, emission_limits, electricity_demand, heat_d
     for sp_id, sp_probability in scenario_path_probabilities.items():
         theta[sp_id].Obj = sp_probability
 
-    log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
-
-    model.setParam('LogFile', log_file_path)
+    #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
+    #model.setParam('LogFile', log_file_path)
     #model.setParam('FeasibilityTol', 1e-8)
     model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)
@@ -325,9 +324,8 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
             node.AddSubproblemHeatTransferCapacityConstraints(_worker_model)
             node.AddEmissionConstraints(_worker_model, emission_limits)
 
-    log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
-
-    _worker_model.setParam('LogFile', log_file_path)
+    #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
+    #_worker_model.setParam('LogFile', log_file_path)
     _worker_model.setParam('Threads', threads)
     _worker_model.setParam('LogToConsole', 0)
     _worker_model.setParam('InfUnbdInfo', 1)
@@ -372,8 +370,7 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
                 node.AddSubproblemStorageCapacityConstraints(model)
                 node.AddSubproblemHeatTransferCapacityConstraints(model)
 
-    log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
-
+    #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
     #model.setParam('LogFile', log_file_path)
     model.setParam('Threads', threads)
     model.setParam('LogToConsole', 0)

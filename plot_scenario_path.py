@@ -147,7 +147,7 @@ def main():
 	numSubterms = 1092
 	numMultipliers = 2
 	epsilon = 0
-	folder_suffix = f"eps({epsilon})_base"
+	folder_suffix = f"eps({epsilon})"
 
 	operational_data, scenario_paths, electricity_demand, heat_demand, results_dir = compute_generation_data(numStages, numSubperiods, numSubterms, numMultipliers, epsilon, folder_suffix)
 	first_sp_id = min(scenario_paths.keys())

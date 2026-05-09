@@ -6,6 +6,7 @@ import numpy as np
 import threading
 import numba
 import time
+import csv
 import os
 
 _cached_worker_model = None
@@ -63,6 +64,9 @@ def solve_subproblem(master_solution):
 
     return objective_value, cut_intercept, dual_coefs, is_optimal
 
+def reset_subproblem_basis():
+    _cached_worker_model.reset(0)
+
 def _compute_scale_factor(cut_values, master_scaling_stats):
     abs_values = np.abs(cut_values)
     abs_values = abs_values[abs_values > 0]
@@ -87,7 +91,7 @@ def _compute_scale_factor(cut_values, master_scaling_stats):
     else:
         if cut_max * scale_factor > master_max:
             scale_factor = master_max / cut_max
-    
+
     if cut_min * scale_factor < 1e-5:
         scale_factor = 1e-5 / cut_min
 
@@ -496,19 +500,20 @@ def benders_callback(model, where):
 
             gap = (call_back_data['best_upper_bound'] - call_back_data['best_lower_bound']) / max(1e-6, call_back_data['best_upper_bound'])
 
-            log_lines = [
-                '-' * 30,
-                f"Iteration {call_back_data['iteration']}:",
-                f"Upper Bound: {call_back_data['best_upper_bound']:.2f}",
-                f"Lower Bound: {call_back_data['best_lower_bound']:.2f}",
-                f"Gap: {(100 * gap):.2f}%",
-                f"Number of Optimality Cuts: {optimality_cut_amount}",
-                f"Number of Feasibility Cuts: {feasibility_cut_amount}",
-                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds",
-                f"Iteration Time: {time.time() - iteration_start_time:.2f} seconds"
-            ]
-
-            call_back_data['log_file'].write('\n'.join(log_lines) + '\n')
+            call_back_data['csv_rows'].append([
+                'Callback',
+                call_back_data['iteration'],
+                f"{call_back_data['best_upper_bound']:.2f}",
+                f"{call_back_data['best_lower_bound']:.2f}",
+                f"{100 * gap:.2f}",
+                optimality_cut_amount,
+                feasibility_cut_amount,
+                f'{subproblem_execution_time:.2f}',
+                '',
+                f'{time.time() - iteration_start_time:.2f}',
+                '',
+                '',
+            ])
             call_back_data['total_iteration_time'] += time.time() - iteration_start_time
 
             if gap < call_back_data['tolerance']:
@@ -575,6 +580,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
     else:
         from benders_model import MasterProblemModel, SubProblemModel, OperationalNonanticipativityModel
 
+    csv_rows = []
     executors = {}
     for scenario_path_id, scenario_path_nodes in scenario_paths.items():
         executor = concurrent.futures.ProcessPoolExecutor(
@@ -643,13 +649,17 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                 if lp_master_model is not None:
                     add_cut_lp_model(lp_master_model, lp_all_vars, cut_var_indices, cut_coefs, cut_constant, f"incumbent_opt_cut_{sp_id}")
 
-            log_file.write(f"Incumbent solution is feasible\n")
+            csv_rows.append(['Incumbent solution is feasible'])
+
+        reset_futures = {sp_id: executors[sp_id].submit(reset_subproblem_basis) for sp_id in scenario_paths.keys()}
+        for f in reset_futures.values():
+            f.result()
 
     if callback_flag:
         master_model.setParam('LazyConstraints', 1)
         master_model.setParam('PreCrush', 1)
 
-        master_model._callback_data = {'iteration': 0, 'lock': threading.Lock(), 'log_file': log_file, 'executors': executors, 'scenario_paths': scenario_paths,
+        master_model._callback_data = {'iteration': 0, 'lock': threading.Lock(), 'csv_rows': csv_rows, 'executors': executors, 'scenario_paths': scenario_paths,
             'scenario_path_probabilities': scenario_path_probabilities, 'best_upper_bound': float('inf'), 'best_lower_bound': float('-inf'), 'best_ub_solution': None,
             'master_vars': master_vars, 'master_vars_by_sp': master_vars_by_sp, 'master_dv_indices': master_dv_indices, 'theta_vars': theta_vars, 
             'scenario_path_ids': list(scenario_paths.keys()), 'continuous_flag': continuous_flag, 'valid_inequalities_flag': valid_inequalities_flag,
@@ -682,7 +692,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         previous_master_solution = None
 
         prune_inactive_count = 100
-        prune_percentile = 75
+        prune_percentile = 50
         scenario_path_ids = list(scenario_paths.keys())
         scenario_path_prob_array = np.array([scenario_path_probabilities[sp_id] for sp_id in scenario_path_ids], dtype=np.float64)
         all_master_vars = master_model.getVars()
@@ -702,7 +712,6 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             lp_phase = True
 
         best_lb_array = deque([None]*51, maxlen=51)
-        all_ub_found = []
         lp_phase_iterations = None
         last_incumbent_iteration = None
 
@@ -715,7 +724,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             all_var_values = np.array(master_model.getAttr('X', all_master_vars), dtype=np.float64)
             master_solution_array = all_var_values[nontheta_var_indices]
 
-            if previous_master_solution is not None and not continuous_flag:
+            if previous_master_solution is not None and not continuous_flag and not lp_phase:
                 if np.array_equal(master_solution_array, previous_master_solution):
                     current_mipgap = master_model.Params.MIPGap
                     master_model.setParam('MIPGap', float(current_mipgap) * 0.9)
@@ -818,8 +827,8 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             upper_bound = master_model.ObjVal - theta_sum + np.dot(sp_objectives_array, scenario_path_prob_array)
             all_feasible = all(subproblem_feasibility.values())
 
-            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 100
-            post_incumbent = last_incumbent_iteration is not None and (iteration - last_incumbent_iteration) <= 10
+            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 200
+            post_incumbent = last_incumbent_iteration is not None and (iteration - last_incumbent_iteration) <= 25
             if not lp_phase and not continuous_flag and not all_feasible and not (mip_warmup or post_incumbent):
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
                 feas_dual_coefs = {sp_id: v for sp_id, v in subproblem_dual_coefs.items() if not subproblem_feasibility[sp_id]}
@@ -860,27 +869,24 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                 best_ub_solution = {var.varName: val for var, val, keep in zip(all_master_vars, all_var_values, nontheta_mask) if keep}
 
             gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
-            log_lines = [
-                '-' * 30,
-                f"{'LP' if lp_phase else 'MIP'} Iteration {iteration}:",
-                f"Upper Bound: {best_upper_bound:.2f}",
-                f"Lower Bound: {best_lower_bound:.2f}",
-                f"Gap: {(100 * gap):.2f}%",
-                f"Number of Optimality Cuts: {optimality_cut_amount}",
-                f"Number of Feasibility Cuts: {feasibility_cut_amount}",
-                f"Subproblem Execution Time: {subproblem_execution_time:.2f} seconds",
-                f"Master Problem Execution Time: {master_execution_time:.2f} seconds"
-            ]
 
-            if all_feasible:
-                all_ub_found.append([iteration, round(best_lower_bound), round(upper_bound), (100 * gap)])
-                if not lp_phase:
-                    last_incumbent_iteration = iteration
+            if all_feasible and not lp_phase:
+                last_incumbent_iteration = iteration
 
-            if readded_count > 0:
-                log_lines.append(f"Readded Cuts from Pool: {readded_count}, Pool Size: {len(pruned_cut_data['names'])}")
-
-            log_file.write('\n'.join(log_lines) + '\n')
+            csv_rows.append([
+                'LP' if lp_phase or continuous_flag else 'MIP',
+                iteration,
+                f'{best_upper_bound:.2f}',
+                f'{best_lower_bound:.2f}',
+                f'{100 * gap:.2f}',
+                optimality_cut_amount,
+                feasibility_cut_amount,
+                f'{subproblem_execution_time:.2f}',
+                f'{master_execution_time:.2f}',
+                '',
+                readded_count if readded_count > 0 else '',
+                len(pruned_cut_data['names']) if readded_count > 0 else '',
+            ])
 
             if lp_phase:
                 if best_lb_array[0] is None:
@@ -915,35 +921,28 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         total_iteration_time = time.time() - total_iteration_time
     
     final_gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
-    summary_lines = [
-        '=' * 30,
-        'Final Summary',
-        f'Best Upper Bound: {best_upper_bound:.2f}',
-        f'Final Lower Bound: {best_lower_bound:.2f}',
-        f'Final Gap: {(100 * final_gap):.2f}%',
-        f'Number of Iterations: {iteration}',
-        f'Total Feasibility Cuts: {feasibility_cuts_added}',
-        f'Total Optimality Cuts: {optimality_cuts_added}',
-        f'Total Readded Cuts: {total_readded}',
-        f'Subproblem Time: {total_subproblem_time:.2f} seconds',
-        f'Master Time: {total_master_time:.2f} seconds',
-        f'Iteration Time: {total_iteration_time:.2f} seconds'
-    ]
+
+    csv_rows.append([])
+    csv_rows.append(['Summary'])
+    csv_rows.append(['Best Upper Bound', f'{best_upper_bound:.2f}'])
+    csv_rows.append(['Final Lower Bound', f'{best_lower_bound:.2f}'])
+    csv_rows.append(['Final Gap (%)', f'{100 * final_gap:.2f}'])
+    csv_rows.append(['Number of Iterations', iteration])
+    csv_rows.append(['Total Feasibility Cuts', feasibility_cuts_added])
+    csv_rows.append(['Total Optimality Cuts', optimality_cuts_added])
+    csv_rows.append(['Total Readded Cuts', total_readded])
+    csv_rows.append(['Subproblem Time (s)', f'{total_subproblem_time:.1f}'])
+    csv_rows.append(['Master Time (s)', f'{total_master_time:.1f}'])
+    csv_rows.append(['Iteration Time (s)', f'{total_iteration_time:.1f}'])
 
     if valid_inequalities_flag:
-        summary_lines.append(f'Valid Inequality Time: {total_valid_inequality_time:.2f} seconds')
-        summary_lines.append(f'Number of Valid Inequalities: {valid_inequalities_added}')
-
+        csv_rows.append(['Valid Inequality Time (s)', f'{total_valid_inequality_time:.1f}'])
+        csv_rows.append(['Number of Valid Inequalities', valid_inequalities_added])
     if not callback_flag and original_variable_types:
-        summary_lines.append(f'LP Phase Iterations: {lp_phase_iterations}, Iteration Time: {lp_phase_iteration_time}')
-        summary_lines.append(f'MIP Phase Iterations: {iteration - lp_phase_iterations}, Iteration Time: {total_iteration_time - lp_phase_iteration_time}')
-
-    summary_lines.append('All upper bounds:')
-    summary_lines.append('It.' + '  ' + 'Best LB' + '  ' + 'UB' + '  ' + 'Gap')
-    for ub in all_ub_found:
-        summary_lines.append(str(ub[0]) + '  ' + str(ub[1]) + '  ' + str(ub[2]) + '  ' + str(ub[3]))
-
-    log_file.write('\n'.join(summary_lines) + '\n')
+        csv_rows.append(['LP Phase Iterations', lp_phase_iterations])
+        csv_rows.append(['LP Phase Iteration Time (s)', f'{lp_phase_iteration_time:.1f}'])
+        csv_rows.append(['MIP Phase Iterations', iteration - lp_phase_iterations])
+        csv_rows.append(['MIP Phase Iteration Time (s)', f'{total_iteration_time - lp_phase_iteration_time:.1f}'])
 
     if incumbent_solve:
         best_master_solution_array = np.array([best_ub_solution[name] for name in master_var_names], dtype=np.float64)
@@ -967,6 +966,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         for executor in executors.values():
             executor.shutdown(wait=True)
 
+        writer = csv.writer(log_file, lineterminator='\n')
+        writer.writerow(['Phase', 'Iteration', 'Upper Bound', 'Lower Bound', 'Gap(%)', 'Optimality Cuts', 'Feasibility Cuts', 'Subproblem Time(s)', 'Master Time(s)', 'Iteration Time(s)', 'Readded Cuts', 'Pool Size'])
+        writer.writerows(csv_rows)
         return solution_dict
 
     final_sol_file = os.path.join(results_directory, 'Results.sol')
@@ -1004,7 +1006,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
         operational_model.update()
         operational_model.optimize()
-        log_file.write(f'Nonanticipativity Model Solve Time: {operational_model.Runtime:.2f} seconds\n')
+        csv_rows.append(['Nonanticipativity Solve Time (s)', f'{operational_model.Runtime:.1f}'])
 
         with open(final_sol_file, 'a') as f:
             for var in operational_model.getVars():
@@ -1036,3 +1038,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         lp_master_model.dispose()
     master_model.dispose()
     master_env.dispose()
+
+    writer = csv.writer(log_file, lineterminator='\n')
+    writer.writerow(['Phase', 'Iteration', 'Upper Bound', 'Lower Bound', 'Gap(%)', 'Optimality Cuts', 'Feasibility Cuts', 'Subproblem Time(s)', 'Master Time(s)', 'Iteration Time(s)', 'Readded Cuts', 'Pool Size'])
+    writer.writerows(csv_rows)

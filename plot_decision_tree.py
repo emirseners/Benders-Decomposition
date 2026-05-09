@@ -402,7 +402,7 @@ def generate_node_labels():
 def main():
     model_name = '3_5_1092'
     epsilon = 0
-    folder_suffix = f"eps({epsilon})_base"
+    folder_suffix = f"eps({epsilon})"
     sol_file = f"Results_{model_name}_{folder_suffix}/Results.sol"
 
     capacities = read_and_aggregate_capacities(sol_file)

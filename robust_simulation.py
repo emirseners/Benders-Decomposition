@@ -2,6 +2,7 @@ import os
 import re
 import time
 import numpy as np
+import colorednoise as cn
 import concurrent.futures
 from fetch_data import fetch_data
 from gurobipy import GRB, Model, quicksum
@@ -9,7 +10,7 @@ from scenario_tree import generate_scenario_tree, extract_stage_node_ranges, ext
 
 _worker_state = None
 
-def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities):
+def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities, noise_exponent):
     global _worker_state
 
     _worker_state = {
@@ -29,6 +30,7 @@ def _init_replication_worker(scenario_tree_copy, stage_node_ranges, input_data, 
         'h_demand_std': input_data['heat_demand_std'],
         'random_data': ['electricity_demand', 'heat_demand', 'solar', 'wind', 'parabolic_trough', 'heat_pump'],
         'node_probabilities': node_probabilities,
+        'noise_exponent': noise_exponent,
     }
 
 def run_single_replication(args):
@@ -53,15 +55,24 @@ def run_single_replication(args):
     simulation_epsilon = ws['simulation_epsilon']
     random_data_sources = ws['random_data']
     node_probabilities = ws['node_probabilities']
+    noise_exponent = ws['noise_exponent']
 
     replication_start_time = time.time()
 
     random_number_stream = {}
-    for source in random_data_sources:
-        random_number_stream[source] = {0: np.zeros(numSubterms)}
-        for period in range(1, total_periods + 1):
-            random_number_stream[source][period] = rng.standard_normal(numSubterms)
-            #random_number_stream[source][period] = np.zeros(numSubterms)
+    if noise_exponent == 0.0:
+        for source in random_data_sources:
+            random_number_stream[source] = {0: np.zeros(numSubterms)}
+            for period in range(1, total_periods + 1):
+                random_number_stream[source][period] = rng.standard_normal(numSubterms)
+                #random_number_stream[source][period] = np.zeros(numSubterms)
+    else:
+        for source in random_data_sources:
+            full_series = cn.powerlaw_psd_gaussian(noise_exponent, total_periods * numSubterms, random_state=rng)
+            random_number_stream[source] = {0: np.zeros(numSubterms)}
+            for period in range(1, total_periods + 1):
+                start = (period - 1) * numSubterms
+                random_number_stream[source][period] = full_series[start:start + numSubterms]
 
     perturbed_e_demand = [None]
     perturbed_h_demand = [None]
@@ -509,7 +520,8 @@ if __name__ == '__main__':
     perturbed_subterm_interval_length = 3
     investment_epsilon = 0
     simulation_epsilon = 0
-    folder_suffix = f"eps({investment_epsilon})_base"
+    noise_exponent = 1.0   # 0 = white, 1 = pink, 2 = brown
+    folder_suffix = f"eps({investment_epsilon})"
     numReplications = 100
 
     results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
@@ -575,7 +587,7 @@ if __name__ == '__main__':
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=num_workers,
         initializer=_init_replication_worker,
-        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities)
+        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities, noise_exponent)
     ) as executor:
         futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
 
@@ -620,6 +632,7 @@ if __name__ == '__main__':
             'Simulation Run Results',
             f"Investment epsilon: {investment_epsilon}",
             f"Simulation epsilon: {simulation_epsilon}",
+            f"Noise exponent (0=white, 1=pink, 2=brown): {noise_exponent}",
             f"Perturbed window length: {perturbed_subterm_interval_length}",
             f"Dispatch window length: {subterm_interval_length}",
             f"Number of replications: {numReplications}",
