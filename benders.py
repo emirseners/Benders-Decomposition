@@ -646,8 +646,6 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             cut_expressions = add_benders_cuts(incumbent_sp_cut_intercepts, incumbent_sp_dual_coefs, incumbent_sp_feasibility, master_vars_by_sp, theta_vars, master_scaling_stats, master_model_indices, theta_model_indices, incumbent_all_var_values)
             for sp_id, (cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant) in cut_expressions.items():
                 master_model.addConstr(cut_expression >= 0, name=f"incumbent_opt_cut_{sp_id}")
-                if lp_master_model is not None:
-                    add_cut_lp_model(lp_master_model, lp_all_vars, cut_var_indices, cut_coefs, cut_constant, f"incumbent_opt_cut_{sp_id}")
 
             csv_rows.append(['Incumbent solution is feasible'])
 
@@ -701,7 +699,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         nontheta_mask = [not var.varName.startswith("theta") for var in all_master_vars]
         sp_objectives_array = np.empty(len(scenario_path_ids), dtype=np.float64)
 
-        lp_phase = False
+        phase_one = True
         original_variable_types = {}
         if not continuous_flag:
             integer_vars = [var for var in master_model.getVars() if var.vType != GRB.CONTINUOUS]
@@ -709,10 +707,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             for var in integer_vars:
                 var.setAttr('VType', GRB.CONTINUOUS)
             master_model.update()
-            lp_phase = True
 
         best_lb_array = deque([None]*51, maxlen=51)
-        lp_phase_iterations = None
+        phase_one_iterations = None
         last_incumbent_iteration = None
 
         while True:
@@ -724,7 +721,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             all_var_values = np.array(master_model.getAttr('X', all_master_vars), dtype=np.float64)
             master_solution_array = all_var_values[nontheta_var_indices]
 
-            if previous_master_solution is not None and not continuous_flag and not lp_phase:
+            if previous_master_solution is not None and not continuous_flag and not phase_one:
                 if np.array_equal(master_solution_array, previous_master_solution):
                     current_mipgap = master_model.Params.MIPGap
                     master_model.setParam('MIPGap', float(current_mipgap) * 0.9)
@@ -732,7 +729,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
             lower_bound = master_model.ObjVal if continuous_flag else master_model.ObjBound
             best_lower_bound = max(best_lower_bound, lower_bound)
-            if lp_phase:
+            if phase_one:
                 best_lb_array.append(best_lower_bound)
 
             if generated_cuts_data['names']:
@@ -827,9 +824,9 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
             upper_bound = master_model.ObjVal - theta_sum + np.dot(sp_objectives_array, scenario_path_prob_array)
             all_feasible = all(subproblem_feasibility.values())
 
-            mip_warmup = lp_phase_iterations is not None and (iteration - lp_phase_iterations) <= 200
+            mip_warmup = phase_one_iterations is not None and (iteration - phase_one_iterations) <= 200
             post_incumbent = last_incumbent_iteration is not None and (iteration - last_incumbent_iteration) <= 25
-            if not lp_phase and not continuous_flag and not all_feasible and not (mip_warmup or post_incumbent):
+            if not phase_one and not all_feasible and (continuous_flag or not (mip_warmup or post_incumbent)):
                 feas_cut_intercepts = {sp_id: v for sp_id, v in subproblem_cut_intercepts.items() if not subproblem_feasibility[sp_id]}
                 feas_dual_coefs = {sp_id: v for sp_id, v in subproblem_dual_coefs.items() if not subproblem_feasibility[sp_id]}
                 feas_feasibility = {sp_id: False for sp_id in feas_cut_intercepts}
@@ -852,7 +849,7 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
             valid_inequality_derivation_time = 0
             valid_ineq_cut_expressions = None
-            if not all_feasible and valid_inequalities_flag and lp_phase:
+            if not all_feasible and valid_inequalities_flag and phase_one:
                 valid_inequality_start_time = time.time()
                 valid_ineq_cut_expressions = add_valid_inequalities(separation_data, subproblem_feasibility=subproblem_feasibility, all_var_values=all_var_values, master_scaling_stats=master_scaling_stats)
                 for cut_name, (cut_expression, scale_factor, cut_var_indices, cut_coefs, cut_constant) in valid_ineq_cut_expressions.items():
@@ -870,11 +867,11 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
 
             gap = (best_upper_bound - best_lower_bound) / max(1e-6, best_upper_bound)
 
-            if all_feasible and not lp_phase:
+            if all_feasible and not phase_one:
                 last_incumbent_iteration = iteration
 
             csv_rows.append([
-                'LP' if lp_phase or continuous_flag else 'MIP',
+                'P1' if phase_one else 'P2',
                 iteration,
                 f'{best_upper_bound:.2f}',
                 f'{best_lower_bound:.2f}',
@@ -888,31 +885,40 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
                 len(pruned_cut_data['names']) if readded_count > 0 else '',
             ])
 
-            if lp_phase:
+            if phase_one:
                 if best_lb_array[0] is None:
                     best_lb_progress = None
                 else:
                     best_lb_progress = (best_lower_bound - best_lb_array[0]) / max(abs(best_lower_bound), 1e-10)
-                if gap < tolerance or (best_lb_progress is not None and best_lb_progress < 0.001):
-                    for var, vtype in original_variable_types.items():
-                        var.setAttr('VType', vtype)
-                    master_model.update()
 
-                    lp_master_model = master_model.relax()
-                    lp_master_model.setParam('OutputFlag', 0)
-                    lp_all_vars = np.array(lp_master_model.getVars(), dtype=object)
+                if continuous_flag:
+                    if gap < tolerance:
+                        break
+                    elif best_lb_progress is not None and best_lb_progress < 0.001:
+                        phase_one = False
+                        phase_one_iterations = iteration
+                        phase_one_iteration_time = time.time() - total_iteration_time
+                else:
+                    if gap < tolerance or (best_lb_progress is not None and best_lb_progress < 0.001):
+                        for var, vtype in original_variable_types.items():
+                            var.setAttr('VType', vtype)
+                        master_model.update()
 
-                    lp_constr_by_name = {c.constrName: c for c in lp_master_model.getConstrs()}
-                    for i, name in enumerate(generated_cuts_data['names']):
-                        if generated_cuts_data['lp_constraints'][i] is None and name in lp_constr_by_name:
-                            generated_cuts_data['lp_constraints'][i] = lp_constr_by_name[name]
+                        lp_master_model = master_model.relax()
+                        lp_master_model.setParam('OutputFlag', 0)
+                        lp_all_vars = np.array(lp_master_model.getVars(), dtype=object)
 
-                    lp_phase = False
-                    lp_phase_iterations = iteration
-                    lp_phase_iteration_time = time.time() - total_iteration_time
+                        lp_constr_by_name = {c.constrName: c for c in lp_master_model.getConstrs()}
+                        for i, name in enumerate(generated_cuts_data['names']):
+                            if generated_cuts_data['lp_constraints'][i] is None and name in lp_constr_by_name:
+                                generated_cuts_data['lp_constraints'][i] = lp_constr_by_name[name]
 
-                    best_upper_bound = float('inf')
-                    best_ub_solution = None
+                        phase_one = False
+                        phase_one_iterations = iteration
+                        phase_one_iteration_time = time.time() - total_iteration_time
+
+                        best_upper_bound = float('inf')
+                        best_ub_solution = None
             else:
                 if gap < tolerance:
                     break
@@ -939,10 +945,15 @@ def run_benders(numStages, numSubperiods, numSubterms, scenarioTree, initial_tec
         csv_rows.append(['Valid Inequality Time (s)', f'{total_valid_inequality_time:.1f}'])
         csv_rows.append(['Number of Valid Inequalities', valid_inequalities_added])
     if not callback_flag and original_variable_types:
-        csv_rows.append(['LP Phase Iterations', lp_phase_iterations])
-        csv_rows.append(['LP Phase Iteration Time (s)', f'{lp_phase_iteration_time:.1f}'])
-        csv_rows.append(['MIP Phase Iterations', iteration - lp_phase_iterations])
-        csv_rows.append(['MIP Phase Iteration Time (s)', f'{total_iteration_time - lp_phase_iteration_time:.1f}'])
+        csv_rows.append(['LP Phase Iterations', phase_one_iterations])
+        csv_rows.append(['LP Phase Iteration Time (s)', f'{phase_one_iteration_time:.1f}'])
+        csv_rows.append(['MIP Phase Iterations', iteration - phase_one_iterations])
+        csv_rows.append(['MIP Phase Iteration Time (s)', f'{total_iteration_time - phase_one_iteration_time:.1f}'])
+    elif not callback_flag and continuous_flag and phase_one_iterations is not None:
+        csv_rows.append(['Phase 1 Iterations', phase_one_iterations])
+        csv_rows.append(['Phase 1 Iteration Time (s)', f'{phase_one_iteration_time:.1f}'])
+        csv_rows.append(['Phase 2 Iterations', iteration - phase_one_iterations])
+        csv_rows.append(['Phase 2 Iteration Time (s)', f'{total_iteration_time - phase_one_iteration_time:.1f}'])
 
     if incumbent_solve:
         best_master_solution_array = np.array([best_ub_solution[name] for name in master_var_names], dtype=np.float64)

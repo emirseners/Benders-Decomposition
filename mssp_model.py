@@ -213,15 +213,15 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
 
     model.setParam('LogFile', log_file_path)
     model.setParam('LogToConsole', 0)
-    model.setParam('Threads', 2)
+    model.setParam('Threads', 4)
 
     if not continuous_flag:
         model.setParam('MIPFocus', 3)
-        model.setParam('TimeLimit', 86400)
+        model.setParam('TimeLimit', 14400)
         model.setParam('MIPGap', tolerance)
         model.setParam('NodefileStart', 0.95)
         model.setParam('NodefileDir', '.')
-        model.setParam('FeasibilityTol', 1e-5)
+        #model.setParam('FeasibilityTol', 1e-5)
 
     #lp_filename = os.path.join(results_directory, f'{model_name}.lp')
     #model.write(lp_filename)
@@ -254,21 +254,23 @@ def run_mssp_verification(input_data, numStages, numSubperiods, numSubterms, num
 if __name__ == '__main__':
     numStages = 3
     numSubperiods = 5
-    numSubterms = 1092
+    numSubterms_levels = [364, 1092, 2184, 4368]
     numMultipliers = 2
     epsilon = 0
     tolerance=0.01
 
-    continuous_flag = False
-    folder_suffix = f"eps({epsilon})"
+    continuous_flag = True
+    folder_suffix = f"mssp_eps({epsilon})_cont({continuous_flag})"
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, folder_suffix=folder_suffix)
+    for numSubterms in numSubterms_levels:
 
-    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
+        input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=epsilon, folder_suffix=folder_suffix)
 
-    model, env = MSSPProblemModel(scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'],
-                                  initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
-                                  input_data['results_directory'], input_data['discount_factor'], tolerance, model_name='MsspModel', continuous_flag=continuous_flag)
+        scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, mssp_flag=True)
 
-    model.dispose()
-    env.dispose()
+        model, env = MSSPProblemModel(scenario_tree, input_data['emission_limits'], input_data['electricity_demand'], input_data['heat_demand'],
+                                      initial_tech, input_data['budget'], input_data['electricity_purchasing_cost'], input_data['heat_purchasing_cost'],
+                                      input_data['results_directory'], input_data['discount_factor'], tolerance, model_name='MsspModel', continuous_flag=continuous_flag)
+
+        model.dispose()
+        env.dispose()
