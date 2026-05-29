@@ -139,7 +139,7 @@ class ScenarioNode:
                             for p in self.stageSubterms:
                                 model.addConstr(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].heat_transfer_capacity[v] - self.y_Transfer[p,tech.tree.type,v,t,t_] >= 0, name = f'N{self.id}_Heat_Transfer_Capacity_{tech.tree.type}_{v}_{t}_{t_}_{p}')
 
-    def AddEmissionConstraints(self, model, emission_limits):
+    def AddSubproblemEmissionConstraints(self, model, emission_limits):
         for t in self.stageSubperiods:
             if emission_limits[t] is not None:
                 model.addConstr(quicksum(self.e_Purchase[t,p] + self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t], name = f'N{self.id}_Emission_{t}')
@@ -322,7 +322,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
             node.AddSubproblemInventoryBalanceConstraints(_worker_model)
             node.AddSubproblemStorageCapacityConstraints(_worker_model)
             node.AddSubproblemHeatTransferCapacityConstraints(_worker_model)
-            node.AddEmissionConstraints(_worker_model, emission_limits)
+            node.AddSubproblemEmissionConstraints(_worker_model, emission_limits)
 
     #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
     #_worker_model.setParam('LogFile', log_file_path)
