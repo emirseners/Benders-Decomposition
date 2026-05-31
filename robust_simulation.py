@@ -513,15 +513,15 @@ if __name__ == '__main__':
 
     numStages = 3
     numSubperiods = 5
-    numSubterms = 1092
+    numSubterms = 4368
     numMultipliers = 2
 
     subterm_interval_length = 12
-    perturbed_subterm_interval_length = 3
-    investment_epsilon = 0
-    simulation_epsilon = 0
-    noise_exponent = 1.0   # 0 = white, 1 = pink, 2 = brown
-    folder_suffix = f"eps({investment_epsilon})"
+    perturbed_subterm_interval_length = 1
+    investment_epsilon = 0.1
+    simulation_epsilons = [0, 0.1, 0.2]
+    noise_exponents = [0.0, 1.0]   # 0 = white, 1 = pink, 2 = brown
+    folder_suffix = f"eps({investment_epsilon})_cont(False)_vi(True)_inc(False)"
     numReplications = 100
 
     results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
@@ -580,39 +580,12 @@ if __name__ == '__main__':
         optimal_results[3] += 0.001 * values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
         optimal_results[4] += 0.001 * values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
 
-    totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
-    e_violation_reps = 0
-    h_violation_reps = 0
-
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=num_workers,
-        initializer=_init_replication_worker,
-        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, simulation_epsilon, node_probabilities, noise_exponent)
-    ) as executor:
-        futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
-
-        for future in concurrent.futures.as_completed(futures):
-            replication_index, stats, elapsed = future.result()
-            totals['e_purchase'] += stats['e_purchase']
-            totals['h_purchase'] += stats['h_purchase']
-            totals['e_cost'] += stats['e_cost']
-            totals['h_cost'] += stats['h_cost']
-            totals['e_violation'] += stats['e_violation']
-            totals['h_violation'] += stats['h_violation']
-            if stats['e_violation_count'] > 0:
-                e_violation_reps += 1
-            if stats['h_violation_count'] > 0:
-                h_violation_reps += 1
-            print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
-
-    total_execution_time = time.time() - execution_start_time
-    electricity_violation_percentage = (100 * (totals['e_violation'] / numReplications) / sum(input_data['electricity_demand'][-1]))
-    heat_violation_percentage = (100 * (totals['h_violation'] / numReplications) / sum(input_data['heat_demand'][-1]))
     simulation_log_path = os.path.join(input_data['results_directory'], 'SimulationLog.txt')
     write_optimal_results = not os.path.exists(simulation_log_path)
 
-    with open(simulation_log_path, 'a') as log_file:
-        if write_optimal_results:
+    if write_optimal_results:
+        os.makedirs(os.path.dirname(simulation_log_path), exist_ok=True)
+        with open(simulation_log_path, 'a') as log_file:
             log_file.write('\n'.join([
                 '-' * 30,
                 'Optimal Benchmark Results',
@@ -627,23 +600,57 @@ if __name__ == '__main__':
                 '',
             ]) + '\n')
 
-        log_file.write('\n'.join([
-            '-' * 30,
-            'Simulation Run Results',
-            f"Investment epsilon: {investment_epsilon}",
-            f"Simulation epsilon: {simulation_epsilon}",
-            f"Noise exponent (0=white, 1=pink, 2=brown): {noise_exponent}",
-            f"Perturbed window length: {perturbed_subterm_interval_length}",
-            f"Dispatch window length: {subterm_interval_length}",
-            f"Number of replications: {numReplications}",
-            f"Average electricity purchase: {totals['e_purchase'] / numReplications:.2f}",
-            f"Average heat purchase: {totals['h_purchase'] / numReplications:.2f}",
-            f"Average electricity cost: {totals['e_cost'] / numReplications:.2f}",
-            f"Average heat cost: {totals['h_cost'] / numReplications:.2f}",
-            f"Final-period electricity violation (%): {electricity_violation_percentage:.4f}",
-            f"Final-period heat violation (%): {heat_violation_percentage:.4f}",
-            f"Replications with electricity violation: {e_violation_reps}",
-            f"Replications with heat violation: {h_violation_reps}",
-            f"Total execution time: {total_execution_time:.2f} seconds",
-            '',
-        ]) + '\n')
+    for sim_eps in simulation_epsilons:
+        for noise_exp in noise_exponents:
+            loop_start_time = time.time()
+
+            totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
+            e_violation_reps = 0
+            h_violation_reps = 0
+
+            with concurrent.futures.ProcessPoolExecutor(
+                max_workers=num_workers,
+                initializer=_init_replication_worker,
+                initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, sim_eps, node_probabilities, noise_exp)
+            ) as executor:
+                futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
+
+                for future in concurrent.futures.as_completed(futures):
+                    replication_index, stats, elapsed = future.result()
+                    totals['e_purchase'] += stats['e_purchase']
+                    totals['h_purchase'] += stats['h_purchase']
+                    totals['e_cost'] += stats['e_cost']
+                    totals['h_cost'] += stats['h_cost']
+                    totals['e_violation'] += stats['e_violation']
+                    totals['h_violation'] += stats['h_violation']
+                    if stats['e_violation_count'] > 0:
+                        e_violation_reps += 1
+                    if stats['h_violation_count'] > 0:
+                        h_violation_reps += 1
+                    print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
+
+            total_execution_time = time.time() - loop_start_time
+            electricity_violation_percentage = (100 * (totals['e_violation'] / numReplications) / sum(input_data['electricity_demand'][-1]))
+            heat_violation_percentage = (100 * (totals['h_violation'] / numReplications) / sum(input_data['heat_demand'][-1]))
+
+            with open(simulation_log_path, 'a') as log_file:
+                log_file.write('\n'.join([
+                    '-' * 30,
+                    'Simulation Run Results',
+                    f"Investment epsilon: {investment_epsilon}",
+                    f"Simulation epsilon: {sim_eps}",
+                    f"Noise exponent (0=white, 1=pink, 2=brown): {noise_exp}",
+                    f"Perturbed window length: {perturbed_subterm_interval_length}",
+                    f"Dispatch window length: {subterm_interval_length}",
+                    f"Number of replications: {numReplications}",
+                    f"Average electricity purchase: {totals['e_purchase'] / numReplications:.2f}",
+                    f"Average heat purchase: {totals['h_purchase'] / numReplications:.2f}",
+                    f"Average electricity cost: {totals['e_cost'] / numReplications:.2f}",
+                    f"Average heat cost: {totals['h_cost'] / numReplications:.2f}",
+                    f"Final-period electricity violation (%): {electricity_violation_percentage:.4f}",
+                    f"Final-period heat violation (%): {heat_violation_percentage:.4f}",
+                    f"Replications with electricity violation: {e_violation_reps}",
+                    f"Replications with heat violation: {h_violation_reps}",
+                    f"Total execution time: {total_execution_time:.2f} seconds",
+                    '',
+                ]) + '\n')

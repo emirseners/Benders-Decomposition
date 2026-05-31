@@ -123,10 +123,11 @@ class ScenarioNodeMSSP:
                             for p in self.stageSubterms:
                                 model.addConstr(self.y_Transfer[p,tech.tree.type,v,t,t_] <= self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].heat_transfer_capacity[v], name = f'N{self.id}_Heat_Transfer_Capacity_{tech.tree.type}_{v}_{t}_{t_}_{p}')
 
-    def AddEmissionConstraints(self, model, emission_limits):
+    def AddEmissionConstraints(self, model, emission_limits, electricity_demand, heat_demand):
         for t in self.stageSubperiods:
             if emission_limits[t] is not None:
-                model.addConstr(quicksum(self.e_Purchase[t,p] + self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t], name = f'N{self.id}_Emission_{t}')
+                model.addConstr(quicksum(self.e_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t] * sum(electricity_demand[t]), name = f'N{self.id}_Emission_Elec_{t}')
+                model.addConstr(quicksum(self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t] * sum(heat_demand[t]), name = f'N{self.id}_Emission_Heat_{t}')
 
     def AddBudgetConstraints(self, model, budget):
         for t in self.stageSubperiods:
@@ -172,7 +173,7 @@ def MSSPProblemModel(scenarioTree, emission_limits, electricity_demand, heat_dem
             node.AddStorageCapacityConstraints(model)
             node.AddHeatTransferCapacityConstraints(model)
             node.AddBudgetConstraints(model, budget)
-            node.AddEmissionConstraints(model, emission_limits)
+            node.AddEmissionConstraints(model, emission_limits, electricity_demand, heat_demand)
             node.AddSpatialConstraints(model, spatial_limit=None)
             node.AddUpperBoundsForIP(model, budget)
 

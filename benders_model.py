@@ -139,10 +139,11 @@ class ScenarioNode:
                             for p in self.stageSubterms:
                                 model.addConstr(self.FindAncestorFromDiff(t,t_).v_Plus[tech.tree.type,v,t]*self.FindAncestorFromDiff(t,t_).heattransfertechNodeList[i].heat_transfer_capacity[v] - self.y_Transfer[p,tech.tree.type,v,t,t_] >= 0, name = f'N{self.id}_Heat_Transfer_Capacity_{tech.tree.type}_{v}_{t}_{t_}_{p}')
 
-    def AddSubproblemEmissionConstraints(self, model, emission_limits):
+    def AddSubproblemEmissionConstraints(self, model, emission_limits, electricity_demand, heat_demand):
         for t in self.stageSubperiods:
             if emission_limits[t] is not None:
-                model.addConstr(quicksum(self.e_Purchase[t,p] + self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t], name = f'N{self.id}_Emission_{t}')
+                model.addConstr(quicksum(self.e_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t] * sum(electricity_demand[t]), name = f'N{self.id}_Emission_Elec_{t}')
+                model.addConstr(quicksum(self.h_Purchase[t,p] for p in self.stageSubterms) <= emission_limits[t] * sum(heat_demand[t]), name = f'N{self.id}_Emission_Heat_{t}')
 
     def AddBudgetConstraints(self, model, budget):
         for t in self.stageSubperiods:
@@ -322,7 +323,7 @@ def SubProblemModel(scenario_path_id, scenario_path_nodes, scenarioTree, emissio
             node.AddSubproblemInventoryBalanceConstraints(_worker_model)
             node.AddSubproblemStorageCapacityConstraints(_worker_model)
             node.AddSubproblemHeatTransferCapacityConstraints(_worker_model)
-            node.AddSubproblemEmissionConstraints(_worker_model, emission_limits)
+            node.AddSubproblemEmissionConstraints(_worker_model, emission_limits, electricity_demand, heat_demand)
 
     #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
     #_worker_model.setParam('LogFile', log_file_path)
@@ -369,6 +370,7 @@ def OperationalNonanticipativityModel(scenarioTree, emission_limits, electricity
                 node.AddSubproblemInventoryBalanceConstraints(model)
                 node.AddSubproblemStorageCapacityConstraints(model)
                 node.AddSubproblemHeatTransferCapacityConstraints(model)
+                node.AddSubproblemEmissionConstraints(model, emission_limits, electricity_demand, heat_demand)
 
     #log_file_path = os.path.join(results_directory, model_key + 'GurobiLog.txt')
     #model.setParam('LogFile', log_file_path)

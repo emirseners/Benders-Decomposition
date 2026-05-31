@@ -149,7 +149,7 @@ def fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, raw_data=None, 
     electricity_purchasing_cost = [144.0 for _ in range(numStages*numSubperiods+1)]
     heat_purchasing_cost = [37.4 for _ in range(numStages*numSubperiods+1)]
     emission_limits = [None for _ in range(numStages*numSubperiods)] + [0]
-    budget = [0, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000, 20000000]
+    budget = [0] + [20000000] * int(numStages * numSubperiods)
 
     results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
 

@@ -14,7 +14,7 @@ if __name__ == '__main__':
     benders_without_feasibility_flag = False
     aggregated_subproblems_flag = False
     worst_sp_incumbent_flag = False
-    valid_inequalities_flag = [False]
+    valid_inequalities_flag = [True]
     continuous_flag = [False]
     callback_flag = False
     master_threads = 4
