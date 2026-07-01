@@ -517,140 +517,143 @@ if __name__ == '__main__':
     numMultipliers = 2
 
     subterm_interval_length = 12
-    perturbed_subterm_interval_length = 1
-    investment_epsilon = 0.1
-    simulation_epsilons = [0, 0.1, 0.2]
+    perturbed_subterm_interval_lengths = [1, 3]
+    investment_epsilons = [0, 0.1, 0.2]
+    simulation_epsilons = [0, 1, 2]
     noise_exponents = [0.0, 1.0]   # 0 = white, 1 = pink, 2 = brown
-    folder_suffix = f"eps({investment_epsilon})_cont(False)_vi(True)_inc(False)"
     numReplications = 100
 
-    results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
-    results_sol_path = os.path.join(results_directory, 'Results.sol')
-    num_workers = min(os.cpu_count(), numReplications)
+    for investment_epsilon in investment_epsilons:
+        folder_suffix = f"eps({investment_epsilon})_cont(False)_vi(True)_inc(False)"
 
-    input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, folder_suffix=folder_suffix)
+        results_directory = f'Results_{numStages}_{numSubperiods}_{numSubterms}_{folder_suffix}'
+        results_sol_path = os.path.join(results_directory, 'Results.sol')
+        num_workers = min(os.cpu_count(), numReplications, 55)
 
-    scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, dispatch_flag=True, solar_periodic_generation_std=input_data['solar_periodic_generation_std'], wind_periodic_generation_std=input_data['wind_periodic_generation_std'], parabolic_trough_periodic_generation_std=input_data['parabolic_trough_periodic_generation_std'], heat_pump_cop_std=input_data['heat_pump_cop_std'])
+        input_data = fetch_data(numStages, numSubperiods, numSubterms, epsilon=0, folder_suffix=folder_suffix)
 
-    stage_node_ranges = extract_stage_node_ranges(scenario_tree)
-    scenario_paths, scenario_path_probabilities = extract_scenario_paths_and_probabilities(scenario_tree)
+        scenario_tree, initial_tech = generate_scenario_tree(input_data['solar_initial'], input_data['solar_periodic_generation'], input_data['solar_advancements'], input_data['wind_initial'], input_data['wind_periodic_generation'], input_data['wind_advancements'], input_data['electricity_storage_initial'], input_data['electricity_storage_advancements'], input_data['parabolic_trough_initial'], input_data['parabolic_trough_periodic_generation'], input_data['parabolic_trough_advancements'], input_data['heat_pump_initial'], input_data['heat_pump_cop'], input_data['heat_pump_advancements'], input_data['heat_storage_initial'], input_data['heat_storage_advancements'], numSubterms, numSubperiods, numStages, numMultipliers, dispatch_flag=True, solar_periodic_generation_std=input_data['solar_periodic_generation_std'], wind_periodic_generation_std=input_data['wind_periodic_generation_std'], parabolic_trough_periodic_generation_std=input_data['parabolic_trough_periodic_generation_std'], heat_pump_cop_std=input_data['heat_pump_cop_std'])
 
-    plus_vars = {}
-    opt_results = {}
-    with open(results_sol_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
+        stage_node_ranges = extract_stage_node_ranges(scenario_tree)
+        scenario_paths, scenario_path_probabilities = extract_scenario_paths_and_probabilities(scenario_tree)
 
-            parts = line.split()
-            if len(parts) >= 2:
-                var_name = parts[0]
-                if "plus" in var_name:
-                    plus_vars[var_name] = float(parts[1])
-                elif var_name.startswith("electricitypurchase_") or var_name.startswith("heatpurchase_"):
-                    dv_name, node_id, indices = parse(var_name)
-                    if node_id == 0:
-                        continue
-                    key = (node_id, int(indices[0]), int(indices[1]))
-                    if key not in opt_results:
-                        opt_results[key] = {'e': 0.0, 'h': 0.0}
-                    if "electricitypurchase" in dv_name:
-                        opt_results[key]['e'] = float(parts[1])
-                    elif "heatpurchase" in dv_name:
-                        opt_results[key]['h'] = float(parts[1])
+        plus_vars = {}
+        opt_results = {}
+        with open(results_sol_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
 
-    scenario_tree.plus_vars = plus_vars
+                parts = line.split()
+                if len(parts) >= 2:
+                    var_name = parts[0]
+                    if "plus" in var_name:
+                        plus_vars[var_name] = float(parts[1])
+                    elif var_name.startswith("electricitypurchase_") or var_name.startswith("heatpurchase_"):
+                        dv_name, node_id, indices = parse(var_name)
+                        if node_id == 0:
+                            continue
+                        key = (node_id, int(indices[0]), int(indices[1]))
+                        if key not in opt_results:
+                            opt_results[key] = {'e': 0.0, 'h': 0.0}
+                        if "electricitypurchase" in dv_name:
+                            opt_results[key]['e'] = float(parts[1])
+                        elif "heatpurchase" in dv_name:
+                            opt_results[key]['h'] = float(parts[1])
 
-    master_seed_seq = np.random.SeedSequence(42)
-    child_seeds = master_seed_seq.spawn(numReplications)
+        scenario_tree.plus_vars = plus_vars
 
-    node_probabilities = {}
-    for path_id, nodes in scenario_paths.items():
-        for node_id in nodes:
-            if node_id not in node_probabilities:
-                node_probabilities[node_id] = 0.0
-            node_probabilities[node_id] += scenario_path_probabilities[path_id]
+        master_seed_seq = np.random.SeedSequence(42)
+        child_seeds = master_seed_seq.spawn(numReplications)
 
-    optimal_results = ['optimal', 0, 0, 0, 0, 0, 0, 0, 0]
-    for (node_id, subperiod, subterm), values in opt_results.items():
-        node_prob = node_probabilities[node_id]
-        optimal_results[1] += values['e'] * node_prob
-        optimal_results[2] += values['h'] * node_prob
-        optimal_results[3] += 0.001 * values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
-        optimal_results[4] += 0.001 * values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+        node_probabilities = {}
+        for path_id, nodes in scenario_paths.items():
+            for node_id in nodes:
+                if node_id not in node_probabilities:
+                    node_probabilities[node_id] = 0.0
+                node_probabilities[node_id] += scenario_path_probabilities[path_id]
 
-    simulation_log_path = os.path.join(input_data['results_directory'], 'SimulationLog.txt')
-    write_optimal_results = not os.path.exists(simulation_log_path)
+        optimal_results = ['optimal', 0, 0, 0, 0, 0, 0, 0, 0]
+        for (node_id, subperiod, subterm), values in opt_results.items():
+            node_prob = node_probabilities[node_id]
+            optimal_results[1] += values['e'] * node_prob
+            optimal_results[2] += values['h'] * node_prob
+            optimal_results[3] += 0.001 * values['e'] * node_prob * input_data['electricity_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
+            optimal_results[4] += 0.001 * values['h'] * node_prob * input_data['heat_purchasing_cost'][subperiod] * (input_data['discount_factor'] ** subperiod)
 
-    if write_optimal_results:
-        os.makedirs(os.path.dirname(simulation_log_path), exist_ok=True)
-        with open(simulation_log_path, 'a') as log_file:
-            log_file.write('\n'.join([
-                '-' * 30,
-                'Optimal Benchmark Results',
-                f"Average electricity purchase: {optimal_results[1]:.2f}",
-                f"Average heat purchase: {optimal_results[2]:.2f}",
-                f"Average electricity cost: {optimal_results[3]:.2f}",
-                f"Average heat cost: {optimal_results[4]:.2f}",
-                f"Final-period electricity violation (%): {optimal_results[5]:.4f}",
-                f"Final-period heat violation (%): {optimal_results[6]:.4f}",
-                f"Replications with electricity violation: {optimal_results[7]}",
-                f"Replications with heat violation: {optimal_results[8]}",
-                '',
-            ]) + '\n')
+        simulation_log_path = os.path.join(input_data['results_directory'], 'SimulationLog.txt')
+        write_optimal_results = not os.path.exists(simulation_log_path)
 
-    for sim_eps in simulation_epsilons:
-        for noise_exp in noise_exponents:
-            loop_start_time = time.time()
-
-            totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
-            e_violation_reps = 0
-            h_violation_reps = 0
-
-            with concurrent.futures.ProcessPoolExecutor(
-                max_workers=num_workers,
-                initializer=_init_replication_worker,
-                initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, sim_eps, node_probabilities, noise_exp)
-            ) as executor:
-                futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
-
-                for future in concurrent.futures.as_completed(futures):
-                    replication_index, stats, elapsed = future.result()
-                    totals['e_purchase'] += stats['e_purchase']
-                    totals['h_purchase'] += stats['h_purchase']
-                    totals['e_cost'] += stats['e_cost']
-                    totals['h_cost'] += stats['h_cost']
-                    totals['e_violation'] += stats['e_violation']
-                    totals['h_violation'] += stats['h_violation']
-                    if stats['e_violation_count'] > 0:
-                        e_violation_reps += 1
-                    if stats['h_violation_count'] > 0:
-                        h_violation_reps += 1
-                    print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
-
-            total_execution_time = time.time() - loop_start_time
-            electricity_violation_percentage = (100 * (totals['e_violation'] / numReplications) / sum(input_data['electricity_demand'][-1]))
-            heat_violation_percentage = (100 * (totals['h_violation'] / numReplications) / sum(input_data['heat_demand'][-1]))
-
+        if write_optimal_results:
+            os.makedirs(os.path.dirname(simulation_log_path), exist_ok=True)
             with open(simulation_log_path, 'a') as log_file:
                 log_file.write('\n'.join([
                     '-' * 30,
-                    'Simulation Run Results',
-                    f"Investment epsilon: {investment_epsilon}",
-                    f"Simulation epsilon: {sim_eps}",
-                    f"Noise exponent (0=white, 1=pink, 2=brown): {noise_exp}",
-                    f"Perturbed window length: {perturbed_subterm_interval_length}",
-                    f"Dispatch window length: {subterm_interval_length}",
-                    f"Number of replications: {numReplications}",
-                    f"Average electricity purchase: {totals['e_purchase'] / numReplications:.2f}",
-                    f"Average heat purchase: {totals['h_purchase'] / numReplications:.2f}",
-                    f"Average electricity cost: {totals['e_cost'] / numReplications:.2f}",
-                    f"Average heat cost: {totals['h_cost'] / numReplications:.2f}",
-                    f"Final-period electricity violation (%): {electricity_violation_percentage:.4f}",
-                    f"Final-period heat violation (%): {heat_violation_percentage:.4f}",
-                    f"Replications with electricity violation: {e_violation_reps}",
-                    f"Replications with heat violation: {h_violation_reps}",
-                    f"Total execution time: {total_execution_time:.2f} seconds",
+                    'Optimal Benchmark Results',
+                    f"Average electricity purchase: {optimal_results[1]:.2f}",
+                    f"Average heat purchase: {optimal_results[2]:.2f}",
+                    f"Average electricity cost: {optimal_results[3]:.2f}",
+                    f"Average heat cost: {optimal_results[4]:.2f}",
+                    f"Final-period electricity violation (%): {optimal_results[5]:.4f}",
+                    f"Final-period heat violation (%): {optimal_results[6]:.4f}",
+                    f"Replications with electricity violation: {optimal_results[7]}",
+                    f"Replications with heat violation: {optimal_results[8]}",
                     '',
                 ]) + '\n')
+
+        for perturbed_subterm_interval_length in perturbed_subterm_interval_lengths:
+            for sim_eps in simulation_epsilons:
+                for noise_exp in noise_exponents:
+                    loop_start_time = time.time()
+
+                    totals = {'e_purchase': 0.0, 'h_purchase': 0.0, 'e_cost': 0.0, 'h_cost': 0.0, 'e_violation': 0.0, 'h_violation': 0.0}
+                    e_violation_reps = 0
+                    h_violation_reps = 0
+
+                    with concurrent.futures.ProcessPoolExecutor(
+                        max_workers=num_workers,
+                        initializer=_init_replication_worker,
+                        initargs=(scenario_tree, stage_node_ranges, input_data, numStages, numSubperiods, numSubterms, subterm_interval_length, perturbed_subterm_interval_length, sim_eps, node_probabilities, noise_exp)
+                    ) as executor:
+                        futures = {executor.submit(run_single_replication, (r, child_seeds[r-1])): r for r in range(1, numReplications + 1)}
+
+                        for future in concurrent.futures.as_completed(futures):
+                            replication_index, stats, elapsed = future.result()
+                            totals['e_purchase'] += stats['e_purchase']
+                            totals['h_purchase'] += stats['h_purchase']
+                            totals['e_cost'] += stats['e_cost']
+                            totals['h_cost'] += stats['h_cost']
+                            totals['e_violation'] += stats['e_violation']
+                            totals['h_violation'] += stats['h_violation']
+                            if stats['e_violation_count'] > 0:
+                                e_violation_reps += 1
+                            if stats['h_violation_count'] > 0:
+                                h_violation_reps += 1
+                            print(f"Replication {replication_index} completed in {elapsed:.2f} seconds")
+
+                    total_execution_time = time.time() - loop_start_time
+                    electricity_violation_percentage = (100 * (totals['e_violation'] / numReplications) / sum(input_data['electricity_demand'][-1]))
+                    heat_violation_percentage = (100 * (totals['h_violation'] / numReplications) / sum(input_data['heat_demand'][-1]))
+
+                    with open(simulation_log_path, 'a') as log_file:
+                        log_file.write('\n'.join([
+                            '-' * 30,
+                            'Simulation Run Results',
+                            f"Investment epsilon: {investment_epsilon}",
+                            f"Simulation epsilon: {sim_eps}",
+                            f"Noise exponent (0=white, 1=pink, 2=brown): {noise_exp}",
+                            f"Perturbed window length: {perturbed_subterm_interval_length}",
+                            f"Dispatch window length: {subterm_interval_length}",
+                            f"Number of replications: {numReplications}",
+                            f"Average electricity purchase: {totals['e_purchase'] / numReplications:.2f}",
+                            f"Average heat purchase: {totals['h_purchase'] / numReplications:.2f}",
+                            f"Average electricity cost: {totals['e_cost'] / numReplications:.2f}",
+                            f"Average heat cost: {totals['h_cost'] / numReplications:.2f}",
+                            f"Final-period electricity violation (%): {electricity_violation_percentage:.4f}",
+                            f"Final-period heat violation (%): {heat_violation_percentage:.4f}",
+                            f"Replications with electricity violation: {e_violation_reps}",
+                            f"Replications with heat violation: {h_violation_reps}",
+                            f"Total execution time: {total_execution_time:.2f} seconds",
+                            '',
+                        ]) + '\n')
